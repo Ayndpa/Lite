@@ -1,4 +1,5 @@
-svg.icon {
+svg.icon,
+img.file-icon {
   display: block;
   flex: none;
 }

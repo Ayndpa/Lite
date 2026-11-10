@@ -51,7 +51,9 @@ export async function activate(ctx) {
     const twisty = entry.is_dir
       ? icons.create(open ? "chevron-down" : "chevron-right", { size: 14, className: "ex-twisty" })
       : Object.assign(document.createElement("span"), { className: "ex-twisty" });
-    const kind = icons.create(entry.is_dir ? (open ? "folder-open" : "folder") : "file", { size: 15, className: "ex-kind" });
+    const kind = entry.is_dir
+      ? icons.folder(entry.name, { open, className: "ex-kind" })
+      : icons.file(entry.name, { className: "ex-kind" });
     const name = Object.assign(document.createElement("span"), { className: "ex-name", textContent: entry.name });
     row.replaceChildren(twisty, kind, name);
   }
@@ -182,7 +184,7 @@ export async function activate(ctx) {
     row.style.paddingLeft = `${8 + depth * 12}px`;
     row.append(
       Object.assign(document.createElement("span"), { className: "ex-twisty" }),
-      icons.create(isDir ? "folder" : "file", { size: 15, className: "ex-kind" }),
+      isDir ? icons.folder("", { className: "ex-kind" }) : icons.file("", { className: "ex-kind" }),
     );
     container.prepend(row);
     const name = await nameInput(row, { value: "", dir: dirPath, original: null, selectBase: false });

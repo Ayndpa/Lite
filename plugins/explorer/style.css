@@ -18,8 +18,6 @@
   user-select: none;
 }
 .ex-twisty { width: 14px; flex: none; color: #888; }
-.ex-kind { color: #8ab4f8; }
-.ex-row .icon-file { color: #999; }
 .ex-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ex-row:hover { background: rgba(255, 255, 255, 0.05); }
 .ex-row.selected { background: rgba(77, 139, 245, 0.3); }

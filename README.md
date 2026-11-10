@@ -8,7 +8,7 @@ Rust + Tauri v2 内核，所有功能都是 `plugins/` 下的插件。禁用全�
 cargo run --manifest-path src-tauri/Cargo.toml
 ```
 
-改了带 `src/` 目录的插件（editor、lang-*）之后需要重新构建（只在开发时需要 Node，构建产物已提交，运行时不需要）：
+改了带 `src/` 目录的插件（editor、lang-*）或升级文件图标包（material-icon-theme）之后需要重新构建（只在开发时需要 Node，构建产物已提交，运行时不需要）：
 
 ```bash
 cd tools && npm install && npm run build
@@ -33,7 +33,9 @@ ui/          UI 内核：插件加载（依赖排序 + 激活超时）、命令�
                     有工作台时列表在侧边栏、详情是编辑器标签页，否则 Ctrl+Shift+, 打开左右两栏的独立面板
                     （内核不提供右键菜单，只负责屏蔽 WebView 自带的那个：Rust 侧 WebView2 设置 + 页面一行拦截）
 plugins/
-  icons/            图标主题：Lucide（ISC，v1.69.0，本地内置，离线可用），提供 `icons` service
+  icons/            图标主题（本地内置，离线可用），提供 `icons` service：界面图标用 Lucide（ISC，v1.69.0）；
+                    文件/文件夹图标用 Material Icon Theme（MIT，v5.40.0，按 VS Code 规则匹配文件名/扩展名/文件夹名，
+                    file-icons.json + file-icons/*.svg 由 tools/build.mjs 生成），资源管理器、编辑器标签、Git 都在用
   workbench/        布局（顶栏/活动栏/侧栏/主区/底部面板/状态栏），定义 slot 和 `workbench` service；
                     底部面板可拖动调高度（记住高度），showPanel/hidePanel/togglePanel，
                     setPanelMaximized/togglePanelMaximized（面板盖住编辑区，隐藏后再打开仍保持最大化）
@@ -172,6 +174,8 @@ export async function activate(ctx) {
 | `platform` | `"windows"` / `"macos"` / `"linux"` |
 
 图标名见 <https://lucide.dev/icons>。注意 `lucide-icon-nodes.json` 只有规范名，不含旧别名（例如 `history` 要写成 `rotate-ccw-clock`）。
+
+文件图标：`icons.file("src/main.rs")`、`icons.folder("node_modules", { open })` 返回彩色的 `<img>`（参数同样有 `size`、`className`）。先按完整文件名匹配（`package.json`、`Cargo.toml`），再按最长扩展名（`a.test.ts` → `test.ts` → `ts`），不区分大小写。编辑器的 `openPage` 也接受 `icon: { file: 路径 }`，标签页显示该文件的图标（例如 Git 的差异标签）。
 
 ## 原型的局限（下一步）
 

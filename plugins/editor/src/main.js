@@ -116,7 +116,8 @@ export async function activate(ctx) {
   /**
    * Tabs, in order. key -> doc
    *   text: { kind: "text", name, state, dirty, language, scroll }   (key = file path)
-   *   page: { kind: "page", name, icon, el }                         (key = "page:<id>", e.g. plugin details)
+   *   page: { kind: "page", name, icon, el }                         (key = "page:<id>", e.g. plugin details;
+   *                                                                   icon: Lucide name or { file: path } for a file icon)
    */
   const docs = new Map();
   let current = null;
@@ -231,6 +232,8 @@ export async function activate(ctx) {
       tab.title = doc.kind === "text" ? key : doc.name;
       tab.innerHTML = `<span></span><button></button>`;
       if (doc.kind === "loading") tab.prepend(icons.create("loader-circle", { size: 14, className: "ed-tab-icon ed-spin" }));
+      else if (doc.kind === "text") tab.prepend(icons.file(doc.name, { size: 14, className: "ed-tab-icon" }));
+      else if (doc.icon?.file) tab.prepend(icons.file(doc.icon.file, { size: 14, className: "ed-tab-icon" }));
       else if (doc.icon) tab.prepend(icons.create(doc.icon, { size: 14, className: "ed-tab-icon" }));
       tab.querySelector("span").textContent = doc.name;
       tab.classList.toggle("dirty", !!doc.dirty);

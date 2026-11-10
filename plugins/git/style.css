@@ -178,6 +178,7 @@
   display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 140px 70px; align-items: center; gap: 10px;
   padding: 5px 6px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 13px; text-align: left;
 }
+.git-ov-item.file { grid-template-columns: 16px minmax(0, 1fr) auto 140px 70px; }
 button.git-ov-item { cursor: pointer; }
 .git-ov-item:hover { background: rgba(255, 255, 255, 0.05); }
 .git-swatch { width: 10px; height: 10px; border-radius: 50%; }
@@ -208,5 +209,5 @@ button.git-ov-item { cursor: pointer; }
 .git-ref.current { background: #2d5aa0; color: #fff; }
 .git-ref.remote { background: rgba(197, 134, 192, 0.2); color: #dcb1da; }
 .git-ref.tag { background: rgba(226, 192, 141, 0.2); color: #e2c08d; }
-.git-commit-file .git-row-name { margin-left: 8px; }
+.git-commit-file .git-file-icon { margin-left: 8px; }
 .git-graph-more { display: block; margin: 4px 0 0 32px; font-size: 12px; }

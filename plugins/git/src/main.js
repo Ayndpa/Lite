@@ -236,7 +236,7 @@ export async function activate(ctx) {
     const extensions = [...editor.viewerExtensions(), await editor.languageFor(name)];
     let dispose = () => {};
     editor.openPage({
-      id, title, icon: "git-compare", reload: true,
+      id, title, icon: { file: name }, reload: true,
       render: (el) => (dispose = diffModule.mountDiff(el, { left, right, extensions, binaryLabel: t("diff.binary") })),
       dispose: () => dispose(),
     });
@@ -312,7 +312,7 @@ export async function activate(ctx) {
     const badge = h("span", "git-row-status", letter);
     badge.style.color = STATUS_COLORS[letter] ?? "";
     badge.title = t(`status.${entry.conflict ? "conflict" : entry.untracked ? "untracked" : entry.status}`);
-    r.append(name, h("span", "git-row-dir", dirName(entry.path)), actions, badge);
+    r.append(icons.file(entry.path, { className: "git-file-icon" }), name, h("span", "git-row-dir", dirName(entry.path)), actions, badge);
     const open = () => openDiff(entry, group === "staged");
     r.onclick = open;
     r.onkeydown = (e) => e.key === "Enter" && open();
@@ -460,7 +460,7 @@ export async function activate(ctx) {
           name.style.color = STATUS_COLORS[f.status] ?? "";
           const badge = h("span", "git-row-status", f.status);
           badge.style.color = STATUS_COLORS[f.status] ?? "";
-          fr.append(passSvg(c.after, width), name, h("span", "git-row-dir", dirName(f.path)), badge);
+          fr.append(passSvg(c.after, width), icons.file(f.path, { className: "git-file-icon" }), name, h("span", "git-row-dir", dirName(f.path)), badge);
           fr.onclick = () => openCommitDiff(c, f);
           g.append(fr);
         }

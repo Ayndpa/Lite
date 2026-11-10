@@ -201,9 +201,14 @@ export function mountOverview(el, env) {
     const list = h("div", "git-ov-list");
     const max = state.tab === "languages" ? L.languages[0].lines : L.topFiles[0]?.lines || 1;
     const item = (color, name, meta, value, onclick) => {
-      const r = h(onclick ? "button" : "div", "git-ov-item");
-      const sw = h("span", "git-swatch");
-      sw.style.background = color;
+      const r = h(onclick ? "button" : "div", `git-ov-item${onclick ? " file" : ""}`);
+      // Files get their file icon; languages a color swatch matching the bar.
+      let sw;
+      if (onclick) sw = icons.file(name);
+      else {
+        sw = h("span", "git-swatch");
+        sw.style.background = color;
+      }
       const meter = h("span", "git-meter");
       const fill = h("span");
       fill.style.cssText = `width:${(value / max) * 100}%;background:${color}`;

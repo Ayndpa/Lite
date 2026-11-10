@@ -1,4 +1,4 @@
 {
-  "name": "Lucide 图标",
-  "description": "基于 Lucide 的图标主题（ISC 许可，v1.69.0）。提供 `icons` 服务：icons.create(name) -> <svg>。"
+  "name": "图标",
+  "description": "图标主题：界面图标来自 Lucide（ISC 许可，v1.69.0），文件/文件夹图标来自 Material Icon Theme（MIT 许可，v5.40.0）。提供 `icons` 服务：icons.create(name) -> <svg>，icons.file(path) / icons.folder(path, { open }) -> <img>。"
 }

@@ -8,9 +8,11 @@
 //    external. Language plugins keep their parser in a separate lang.js loaded only when needed.
 //    "@lite/context-menu" (tools/shared/) is inlined: every plugin gets its own copy of the menu code.
 //
+// 3. File icons: Material Icon Theme mappings + SVGs copied into plugins/icons/ (see section 3).
+//
 // Outputs are committed; the app itself needs no Node.
 import { build } from "esbuild";
-import { readdirSync, existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { readdirSync, existsSync, mkdirSync, readFileSync, writeFileSync, statSync, rmSync, copyFileSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,4 +64,39 @@ for (const id of readdirSync(pluginsDir)) {
     });
     console.log(`plugin  ${`${id}/${file}`.padEnd(26)} ${kb(outfile)}`);
   }
+}
+
+// ---- 3. file icon theme (owned by the icons plugin) ----
+// Material Icon Theme (MIT): the VS Code manifest's dark mappings become plugins/icons/file-icons.json
+// and only the SVGs those mappings use are copied to plugins/icons/file-icons/ (loaded per icon via <img>).
+{
+  const { generateManifest } = await import("material-icon-theme");
+  const theme = generateManifest();
+  const iconsDir = join(pluginsDir, "icons");
+  const outDir = join(iconsDir, "file-icons");
+  const pkgDir = join(tools, "node_modules", "material-icon-theme");
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(outDir);
+  const used = new Set();
+  const pick = (map) => {
+    for (const id of Object.values(map)) used.add(id);
+    return map;
+  };
+  const out = {
+    file: theme.file, folder: theme.folder, folderExpanded: theme.folderExpanded,
+    rootFolder: theme.rootFolder, rootFolderExpanded: theme.rootFolderExpanded,
+    fileNames: pick(theme.fileNames), fileExtensions: pick(theme.fileExtensions),
+    folderNames: pick(theme.folderNames), folderNamesExpanded: pick(theme.folderNamesExpanded),
+    icons: {}, // definition id -> svg file name (several ids can share one file)
+  };
+  for (const id of [theme.file, theme.folder, theme.folderExpanded, theme.rootFolder, theme.rootFolderExpanded]) used.add(id);
+  for (const id of [...used].sort()) {
+    const file = basename(theme.iconDefinitions[id].iconPath);
+    out.icons[id] = file;
+    copyFileSync(join(pkgDir, "icons", file), join(outDir, file));
+  }
+  writeFileSync(join(iconsDir, "file-icons.json"), JSON.stringify(out));
+  copyFileSync(join(pkgDir, "LICENSE"), join(iconsDir, "LICENSE-material-icon-theme"));
+  const version = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")).version;
+  console.log(`icons   material-icon-theme ${version}  ${readdirSync(outDir).length} svg, ${kb(join(iconsDir, "file-icons.json"))} json`);
 }
