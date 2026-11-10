@@ -4,6 +4,8 @@
 
 const PANEL_HEIGHT_KEY = "lite.workbench.panelHeight";
 const PANEL_MIN = 80;
+const SIDEBAR_WIDTH_KEY = "lite.workbench.sidebarWidth";
+const SIDEBAR_MIN = 160;
 
 export async function activate(ctx) {
   const icons = await ctx.services.get("icons");
@@ -15,6 +17,7 @@ export async function activate(ctx) {
         <aside class="wb-sidebar">
           <header class="wb-sidebar-title"></header>
           <div class="wb-sidebar-body"></div>
+          <div class="wb-sash-v"></div>
         </aside>
         <div class="wb-center">
           <main class="wb-main"></main>
@@ -73,6 +76,31 @@ export async function activate(ctx) {
       };
       sash.addEventListener("pointermove", move);
       sash.addEventListener("pointerup", up, { once: true });
+    });
+
+    // ----- sidebar width: draggable on its right edge, remembered like the panel height -----
+    const sidebar = host.querySelector(".wb-sidebar");
+    const sashV = host.querySelector(".wb-sash-v");
+    const setSidebarWidth = (px) => {
+      const max = Math.max(SIDEBAR_MIN, wb.clientWidth - sidebar.offsetLeft - 200);
+      wb.style.setProperty("--wb-sidebar-width", `${Math.round(Math.min(max, Math.max(SIDEBAR_MIN, px)))}px`);
+    };
+    try {
+      const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY)) || 0;
+      if (stored) wb.style.setProperty("--wb-sidebar-width", `${Math.max(SIDEBAR_MIN, stored)}px`);
+    } catch {}
+    sashV.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      sashV.setPointerCapture(e.pointerId);
+      sashV.classList.add("dragging");
+      const move = (ev) => setSidebarWidth(ev.clientX - sidebar.getBoundingClientRect().left);
+      const up = () => {
+        sashV.classList.remove("dragging");
+        sashV.removeEventListener("pointermove", move);
+        try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebar.offsetWidth)); } catch {}
+      };
+      sashV.addEventListener("pointermove", move);
+      sashV.addEventListener("pointerup", up, { once: true });
     });
 
     /** toggle: clicking the active activity-bar item collapses the sidebar; programmatic calls always reveal. */
@@ -140,8 +168,6 @@ export async function activate(ctx) {
     // Host the kernel's built-in plugin manager as the last activity-bar entry (after plugin views),
     // and make "Manage Plugins" reveal it here instead of the kernel's standalone panel.
     ctx.events.on("kernel.ready", () => {
-      // Last of the title bar's buttons (other plugins add theirs while activating).
-      ctx.titlebar.addButton({ id: "sidebar", icon: icons.create("panel-left"), title: ctx.t("button.sidebar"), command: "workbench.toggleSidebar" });
       api.registerView({ id: "plugins", title: ctx.t("view.plugins"), icon: "puzzle", mount: (el) => ctx.pluginManager.mountList(el) });
       ctx.pluginManager.setHost(() => show("plugins"));
       // Details open as a tab when the editor is there; otherwise the kernel's own panel is used.
@@ -152,6 +178,7 @@ export async function activate(ctx) {
 
     ctx.commands.register("workbench.toggleSidebar", "%cmd.toggleSidebar%", () => wb.classList.toggle("no-sidebar"));
     ctx.keybindings.bind("ctrl+b", "workbench.toggleSidebar");
+    ctx.menubar.add("view", [{ command: "workbench.toggleSidebar" }], { order: 200 });
 
     ctx.slots.define("workbench.main", host.querySelector(".wb-main"));
     ctx.slots.define("workbench.panel", panel);

@@ -2,6 +2,5 @@
   "name": "工作台",
   "description": "类似 VS Code 的布局：活动栏、侧边栏、主区域、状态栏。提供 `workbench` 服务和 slot。",
   "cmd.toggleSidebar": "视图: 切换侧边栏",
-  "view.plugins": "插件",
-  "button.sidebar": "切换侧边栏"
+  "view.plugins": "插件"
 }

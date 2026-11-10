@@ -387,6 +387,8 @@ export async function activate(ctx) {
   ctx.events.on("editor.activeFile", ({ path }) => (activeFile = path));
   ctx.commands.register("explorer.reveal", "%cmd.reveal%", (path) => reveal(path ?? activeFile));
   ctx.keybindings.bind("ctrl+shift+e", "explorer.focus");
+  ctx.menubar.add("file", [{ command: "explorer.newFile", label: t("menu.newFile") }, { command: "explorer.newFolder", label: t("menu.newFolder") }], { order: 0 });
+  ctx.menubar.add("view", [{ command: "explorer.focus" }], { order: 100 });
 
   /** Folder for "new file" from the palette: the selected folder, the selected file's folder, or the root. */
   function selectedDir() {

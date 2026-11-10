@@ -212,5 +212,7 @@ export async function activate(ctx) {
   ctx.keybindings.bind("ctrl+`", "terminal.toggle");
   ctx.keybindings.bind("ctrl+shift+`", "terminal.new");
 
-  ctx.titlebar.addButton({ id: "terminal", icon: icons.create("square-terminal"), title: t("action.toggle"), command: "terminal.toggle" });
+  ctx.menubar.add("terminal", [{ command: "terminal.new" }, { command: "terminal.kill" }], { order: 100 });
+  ctx.menubar.add("terminal", [{ command: "terminal.clear" }, { command: "terminal.toggleMaximize" }], { order: 200 });
+  ctx.menubar.add("view", [{ command: "terminal.toggle" }], { order: 200 });
 }

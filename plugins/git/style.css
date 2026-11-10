@@ -182,7 +182,6 @@
 .git-ov-item.file { grid-template-columns: 16px minmax(0, 1fr) auto 140px 70px; }
 button.git-ov-item { cursor: pointer; }
 .git-ov-item:hover { background: var(--lite-hover); }
-.git-swatch { width: 10px; height: 10px; border-radius: 50%; }
 .git-ov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-meter { height: 4px; border-radius: 2px; background: var(--lite-hover); overflow: hidden; }
 .git-meter span { display: block; height: 100%; opacity: 0.8; }
@@ -199,10 +198,11 @@ button.git-ov-item { cursor: pointer; }
 .git-commit.expanded { background: var(--lite-fill-subtle); }
 .git-graph-svg { flex: none; overflow: visible; }
 .git-commit-text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; }
-.git-commit-subject { flex: 0 1 auto; min-width: 56px; overflow: hidden; text-overflow: ellipsis; }
+/* The subject gives way first: ref badges keep their full name and only shrink once it is at min-width. */
+.git-commit-subject { flex: 0 1000 auto; min-width: 56px; overflow: hidden; text-overflow: ellipsis; }
 .git-commit-author { flex: none; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lite-fg-dim); font-size: 12px; }
 .git-ref {
-  flex: 0 2 auto; min-width: 21px; display: inline-flex; align-items: center; gap: 3px; max-width: 120px; padding: 0 5px; height: 16px;
+  flex: 0 1 auto; min-width: 21px; display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; height: 16px;
   border-radius: 8px; background: var(--lite-accent-subtle); color: var(--lite-git-branch); font-size: 11px; overflow: hidden;
 }
 .git-ref span { overflow: hidden; text-overflow: ellipsis; }

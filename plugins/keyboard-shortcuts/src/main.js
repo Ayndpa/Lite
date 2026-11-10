@@ -181,5 +181,6 @@ export function activate(ctx) {
   ctx.events.on("keybindings.changed", render);
   ctx.commands.register("keybindings.open", "%cmd.open%", open);
   ctx.keybindings.bind("ctrl+,", "keybindings.open");
+  ctx.menubar.add("file", [{ command: "keybindings.open" }], { order: 800 });
   ctx.watermark.addHint("keybindings.open", "%hint.open%");
 }

@@ -11,11 +11,9 @@
   "about.workspace": "工作区",
   "about.workspaceNone": "无",
   "about.language": "语言",
-  "about.changeLanguage": "更改语言…",
   "about.ok": "确定",
   "language.title": "显示语言",
   "language.auto": "自动（跟随系统：{system}）",
-  "language.reloadHint": "切换后窗口会重新加载。",
   "language.cancel": "取消",
   "plugin.error.missing": "需要“{dep}”，但它没有安装",
   "plugin.error.notLoaded": "需要“{dep}”，但它没有加载",
@@ -90,7 +88,6 @@
   "language.saveFailed": "无法保存语言设置：{error}",
   "command.theme": "首选项: 颜色主题",
   "theme.title": "颜色主题",
-  "theme.hint": "用 ↑ ↓ 预览，选中后立即生效，不需要重新加载。",
   "theme.auto": "自动（跟随系统：深色或浅色）",
   "theme.customize": "自定义…",
   "theme.source.custom": "自定义",
@@ -100,5 +97,12 @@
   "theme.saveFailed": "无法保存主题：{error}",
   "pm.perm.theme": "更改颜色主题、保存自定义主题",
   "about.theme": "主题",
-  "about.changeTheme": "更改主题…"
+  "menubar.file": "文件",
+  "menubar.edit": "编辑",
+  "menubar.view": "视图",
+  "menubar.terminal": "终端",
+  "menubar.help": "帮助",
+  "cmd.closeWindow": "窗口: 关闭窗口",
+  "about.settings": "设置",
+  "about.details": "详细信息"
 }

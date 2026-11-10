@@ -101,15 +101,60 @@ function modal(id, onDismiss) {
   return { card: backdrop.firstElementChild, close };
 }
 
-/** rows: [[label, value], ...] */
-export function showAbout({ appName, t, rows, onChangeLanguage, onChangeTheme }) {
+// The few Lucide icons the About dialog needs, inlined (the kernel can't depend on the icons plugin).
+const ABOUT_ICONS = {
+  "palette": [["path", { d: "M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" }], ["circle", { cx: "13.5", cy: "6.5", r: ".5", fill: "currentColor" }], ["circle", { cx: "17.5", cy: "10.5", r: ".5", fill: "currentColor" }], ["circle", { cx: "6.5", cy: "12.5", r: ".5", fill: "currentColor" }], ["circle", { cx: "8.5", cy: "7.5", r: ".5", fill: "currentColor" }]],
+  "languages": [["path", { d: "m5 8 6 6" }], ["path", { d: "m4 14 6-6 2-3" }], ["path", { d: "M2 5h12" }], ["path", { d: "M7 2h1" }], ["path", { d: "m22 22-5-10-5 10" }], ["path", { d: "M14 18h6" }]],
+  "puzzle": [["path", { d: "M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" }]],
+  "chevron-right": [["path", { d: "m9 18 6-6-6-6" }]],
+};
+
+function aboutIcon(name, size = 16) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  const attrs = {
+    width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 1.75,
+    "stroke-linecap": "round", "stroke-linejoin": "round", class: "icon", "aria-hidden": "true",
+  };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+  for (const [tag, props] of ABOUT_ICONS[name]) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(props)) el.setAttribute(k, v);
+    svg.appendChild(el);
+  }
+  return svg;
+}
+
+/**
+ * version: shown under the name; settings: [{ icon: "palette" | "languages" | "puzzle", label, value, run }]
+ * — rows that open a setting (the dialog closes first); rows: [[label, value], ...] — plain details.
+ */
+export function showAbout({ appName, version, t, settings, rows }) {
   const { card, close } = modal("about");
   card.innerHTML = `
-    <div class="about-head"><div class="about-title"></div></div>
+    <div class="about-head"><div><div class="about-title"></div><div class="about-version"></div></div></div>
+    <div class="about-section"></div>
+    <div class="about-settings"></div>
+    <div class="about-section"></div>
     <dl class="about-rows"></dl>
-    <div class="about-actions"><button class="about-btn about-theme"></button><button class="about-btn about-lang"></button><button class="about-btn about-ok"></button></div>`;
-  card.querySelector(".about-head").prepend(createLogo(56));
+    <div class="about-actions"><button class="about-btn about-ok"></button></div>`;
+  card.querySelector(".about-head").prepend(createLogo(48));
   card.querySelector(".about-title").textContent = appName;
+  card.querySelector(".about-version").textContent = version;
+  const [settingsTitle, detailsTitle] = card.querySelectorAll(".about-section");
+  settingsTitle.textContent = t("about.settings");
+  detailsTitle.textContent = t("about.details");
+  const list = card.querySelector(".about-settings");
+  for (const s of settings) {
+    const btn = document.createElement("button");
+    btn.className = "about-setting";
+    btn.innerHTML = `<span class="about-setting-label"></span><span class="about-setting-value"></span>`;
+    btn.querySelector(".about-setting-label").textContent = s.label;
+    btn.querySelector(".about-setting-value").textContent = s.value;
+    btn.prepend(aboutIcon(s.icon));
+    btn.append(aboutIcon("chevron-right", 14));
+    btn.onclick = () => { close(); s.run(); };
+    list.append(btn);
+  }
   const dl = card.querySelector(".about-rows");
   for (const [k, v] of rows) {
     dl.append(Object.assign(document.createElement("dt"), { textContent: k }), Object.assign(document.createElement("dd"), { textContent: v }));
@@ -117,12 +162,6 @@ export function showAbout({ appName, t, rows, onChangeLanguage, onChangeTheme })
   const ok = card.querySelector(".about-ok");
   ok.textContent = t("about.ok");
   ok.onclick = close;
-  const lang = card.querySelector(".about-lang");
-  lang.textContent = t("about.changeLanguage");
-  lang.onclick = () => { close(); onChangeLanguage(); };
-  const theme = card.querySelector(".about-theme");
-  theme.textContent = t("about.changeTheme");
-  theme.onclick = () => { close(); onChangeTheme(); };
   ok.focus();
 }
 
@@ -132,10 +171,8 @@ export function showLanguagePicker({ t, options, current, onPick }) {
   card.innerHTML = `
     <div class="about-title lang-title"></div>
     <div class="lang-options" role="radiogroup"></div>
-    <p class="lang-hint"></p>
     <div class="about-actions"><button class="about-btn lang-cancel"></button></div>`;
   card.querySelector(".lang-title").textContent = t("language.title");
-  card.querySelector(".lang-hint").textContent = t("language.reloadHint");
   const cancel = card.querySelector(".lang-cancel");
   cancel.textContent = t("language.cancel");
   cancel.onclick = close;
@@ -154,17 +191,16 @@ export function showLanguagePicker({ t, options, current, onPick }) {
 
 /**
  * options: [{ id, name, type?, source? }]; current: the saved preference.
- * Focusing an option (arrows, Tab, hover) previews it; Cancel / Escape go back via onCancel.
+ * Focusing an option with the keyboard (arrows, Tab) previews it — the mouse only picks; Cancel / Escape
+ * go back via onCancel.
  */
 export function showThemePicker({ t, options, current, preview, onPick, onCancel, onCustomize }) {
   const { card, close } = modal("theme", onCancel);
   card.innerHTML = `
     <div class="about-title lang-title"></div>
     <div class="lang-options theme-options" role="radiogroup"></div>
-    <p class="lang-hint"></p>
     <div class="about-actions"><button class="about-btn theme-customize"></button><button class="about-btn lang-cancel"></button></div>`;
   card.querySelector(".lang-title").textContent = t("theme.title");
-  card.querySelector(".lang-hint").textContent = t("theme.hint");
   const cancel = card.querySelector(".lang-cancel");
   cancel.textContent = t("language.cancel");
   cancel.onclick = () => { close(); onCancel(); };
@@ -182,7 +218,6 @@ export function showThemePicker({ t, options, current, preview, onPick, onCancel
     btn.firstChild.textContent = o.name;
     btn.lastChild.textContent = o.source === "custom" ? t("theme.source.custom") : o.source === "plugin" ? t("theme.source.plugin") : "";
     btn.onfocus = () => preview(o.id);
-    btn.onmouseenter = () => btn.focus();
     btn.onclick = () => { close(); onPick(o.id); };
     list.appendChild(btn);
     return btn;
@@ -195,4 +230,28 @@ export function showThemePicker({ t, options, current, preview, onPick, onCancel
     buttons[(i + step + buttons.length) % buttons.length].focus();
   });
   (list.querySelector('[aria-checked="true"]') ?? list.firstElementChild).focus();
+}
+
+/**
+ * A question with buttons: [{ label, value, primary?, danger? }]. Resolves the clicked button's value,
+ * or null when dismissed (Escape, backdrop). Only one is open at a time.
+ */
+export function showConfirm({ title, body, buttons }) {
+  return new Promise((resolve) => {
+    const { card, close } = modal("confirm", () => resolve(null));
+    card.classList.add("confirm-card");
+    card.innerHTML = `<div class="confirm-title"></div><p class="confirm-body"></p><div class="about-actions"></div>`;
+    card.querySelector(".confirm-title").textContent = title;
+    const p = card.querySelector(".confirm-body");
+    body ? (p.textContent = body) : p.remove();
+    const actions = card.querySelector(".about-actions");
+    for (const b of buttons) {
+      const btn = document.createElement("button");
+      btn.className = `about-btn${b.primary ? " about-ok" : ""}${b.danger ? " confirm-danger" : ""}`;
+      btn.textContent = b.label;
+      btn.onclick = () => { close(); resolve(b.value); };
+      actions.append(btn);
+    }
+    (actions.querySelector(".about-ok") ?? actions.firstElementChild)?.focus();
+  });
 }

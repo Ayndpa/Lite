@@ -200,15 +200,10 @@ export function mountOverview(el, env) {
     }
     const list = h("div", "git-ov-list");
     const max = state.tab === "languages" ? L.languages[0].lines : L.topFiles[0]?.lines || 1;
-    const item = (color, name, meta, value, onclick) => {
+    // iconPath: a file whose icon stands for the row — the file itself, or a language's largest file.
+    const item = (iconPath, color, name, meta, value, onclick) => {
       const r = h(onclick ? "button" : "div", `git-ov-item${onclick ? " file" : ""}`);
-      // Files get their file icon; languages a color swatch matching the bar.
-      let sw;
-      if (onclick) sw = icons.file(name);
-      else {
-        sw = h("span", "git-swatch");
-        sw.style.background = color;
-      }
+      const sw = icons.file(iconPath);
       const meter = h("span", "git-meter");
       const fill = h("span");
       fill.style.cssText = `width:${(value / max) * 100}%;background:${color}`;
@@ -219,10 +214,10 @@ export function mountOverview(el, env) {
     };
     if (state.tab === "languages") {
       for (const g of L.languages) {
-        list.append(item(g.color, g.name, `${((g.lines / L.totalLines) * 100).toFixed(1)}% · ${t("overview.files", { n: fmt(g.files) })}`, g.lines));
+        list.append(item(g.fileList[0].path, g.color, g.name, `${((g.lines / L.totalLines) * 100).toFixed(1)}% · ${t("overview.files", { n: fmt(g.files) })}`, g.lines));
       }
     } else {
-      for (const f of L.topFiles) list.append(item(f.color, f.path, f.language, f.lines, () => env.openFile(f.path)));
+      for (const f of L.topFiles) list.append(item(f.path, f.color, f.path, f.language, f.lines, () => env.openFile(f.path)));
     }
     langCard.replaceChildren(top, bar, tabs, list);
   }

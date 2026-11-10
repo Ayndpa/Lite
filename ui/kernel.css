@@ -89,6 +89,9 @@ body {
 .tb-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-project .tb-caret { color: var(--lite-fg-dim); }
 .tb .tb-button { width: 28px; height: 28px; }
+.tb-side button.open { background: var(--lite-active); color: var(--lite-fg-strong); }
+.tb-menubar { display: flex; flex: none; }
+.tb .tb-menubar-item { padding: 4px 8px; white-space: nowrap; color: var(--lite-fg); }
 
 /* Window controls: full bar height, square corners, flush right. */
 .tb-window { display: flex; height: 100%; }
@@ -110,6 +113,11 @@ body {
   box-shadow: 0 10px 30px var(--lite-shadow);
 }
 .tb-menu[hidden] { display: none; }
+/* Menu-bar menus: narrower than the project menu (no paths). */
+.tb-menu-compact { min-width: 220px; }
+.tb-menu-compact .tb-menu-item { gap: 28px; padding: 5px 14px; }
+.tb-menu-item.disabled { color: var(--lite-fg-dim); cursor: default; pointer-events: none; }
+.tb-menu-line { height: 1px; margin: 4px 0; background: var(--lite-border-subtle); }
 .tb-menu-item { display: flex; align-items: center; gap: 10px; padding: 6px 12px; cursor: pointer; }
 .tb-menu-item .icon { color: var(--lite-fg-muted); flex: none; }
 .tb-menu-label { flex: 1; white-space: nowrap; }
@@ -224,13 +232,37 @@ body {
   border-radius: 10px;
   box-shadow: 0 20px 60px var(--lite-shadow);
 }
-.about-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.about-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .about-title { font-size: 22px; font-weight: 600; color: var(--lite-fg-strong); }
+.about-version { margin-top: 2px; color: var(--lite-fg-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.about-section { margin: 0 0 6px; color: var(--lite-fg-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+/* Settings: one bordered group of rows — icon, name, current value, chevron. */
+.about-settings { margin: 0 0 18px; border: 1px solid var(--lite-border-subtle); border-radius: 8px; overflow: hidden; }
+.about-setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px 9px 12px;
+  border: 0;
+  background: none;
+  color: var(--lite-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.about-setting + .about-setting { border-top: 1px solid var(--lite-border-subtle); }
+.about-setting:hover { background: var(--lite-hover); }
+.about-setting:focus-visible { outline: 2px solid var(--lite-accent); outline-offset: -2px; }
+.about-setting .icon { flex: none; color: var(--lite-fg-muted); }
+.about-setting-label { flex: none; }
+.about-setting-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--lite-fg-dim); }
 .about-rows {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 6px 16px;
   margin: 0 0 18px;
+  font-size: 12px;
 }
 .about-rows dt { color: var(--lite-fg-dim); }
 .about-rows dd { margin: 0; color: var(--lite-fg); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -250,10 +282,17 @@ body {
 .about-ok:hover { background: var(--lite-primary-hover); }
 .about-btn:focus-visible { outline: 2px solid var(--lite-accent); outline-offset: 2px; }
 
+/* ---------- confirm dialog (ctx.dialogs.confirm) ---------- */
+.confirm-title { margin-bottom: 10px; font-size: 15px; font-weight: 600; color: var(--lite-fg-strong); overflow-wrap: anywhere; }
+.confirm-body { margin: 0 0 18px; color: var(--lite-fg-muted); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow: auto; }
+.confirm-card .confirm-title:last-of-type:not(:has(+ .confirm-body)) { margin-bottom: 18px; }
+.confirm-danger { border-color: var(--lite-danger); background: var(--lite-danger); color: #fff; }
+.confirm-danger:hover { background: var(--lite-danger-hover); }
+
 /* ---------- Language picker ---------- */
 
 .lang-title { margin-bottom: 12px; font-size: 17px; }
-.lang-options { display: flex; flex-direction: column; gap: 4px; }
+.lang-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
 .lang-option {
   display: flex;
   align-items: center;
@@ -280,4 +319,3 @@ body {
 .lang-option[aria-checked="true"]::before { border-color: var(--lite-accent); background: radial-gradient(var(--lite-accent) 40%, transparent 45%); }
 .lang-option:hover { background: var(--lite-active); }
 .lang-option:focus-visible { outline: 2px solid var(--lite-accent); outline-offset: 1px; }
-.lang-hint { margin: 12px 0 16px; color: var(--lite-fg-dim); font-size: 12px; }

@@ -72,6 +72,7 @@ export function activate(ctx) {
     ctx.keybindings.bind("ctrl+shift+p", "commandPalette.show");
     ctx.keybindings.bind("f1", "commandPalette.show");
     ctx.watermark.addHint("commandPalette.show", "%hint.show%");
+    ctx.menubar.add("view", [{ command: "commandPalette.show" }], { order: 0 });
   });
 
   // Search box in the middle of the kernel's title bar; shows the current shortcut.

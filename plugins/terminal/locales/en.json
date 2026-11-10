@@ -6,7 +6,6 @@
   "action.kill": "Kill Terminal",
   "action.hide": "Hide Panel",
   "action.clear": "Clear",
-  "action.toggle": "Toggle Terminal",
   "edit.copy": "Copy",
   "edit.paste": "Paste",
   "edit.selectAll": "Select All",

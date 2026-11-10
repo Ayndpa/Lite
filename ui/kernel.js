@@ -1,12 +1,12 @@
 // Lite UI kernel.
 // Provides: workspace (one folder per window), plugin loading (dependency order), commands,
 // keybindings, events, slots (UI mount points), services (plugin-to-plugin APIs) and
-// permission-gated host access, localization, color themes (theme.js). Its own UI: the title bar (project
-// switcher, window controls — titlebar.js; plugins add buttons and the "titlebar.center" slot) and the
+// permission-gated host access, localization, color themes (theme.js). Its own UI: the title bar (menu bar,
+// project switcher, window controls — titlebar.js; plugins add menu items, buttons and the "titlebar.center" slot) and the
 // background: a logo watermark (with hints contributed by plugins), the About dialog and the language and
 // theme pickers — see shell.js.
 
-import { createLogo, formatCombo, mountWatermark, showAbout, showLanguagePicker, showThemePicker } from "./shell.js";
+import { createLogo, formatCombo, mountWatermark, showAbout, showConfirm, showLanguagePicker, showThemePicker } from "./shell.js";
 import { AUTO, BUILTIN_THEMES, createThemes, cssVar } from "./theme.js";
 import { mountTitlebar } from "./titlebar.js";
 import { createPluginManager } from "./plugin-manager.js";
@@ -40,9 +40,35 @@ let workspace = { root: null, name: null };
 let titlebar = null; // created in boot(), once the workspace is known
 const platform = /Mac/.test(navigator.platform) ? "macos" : /Win/.test(navigator.platform) ? "windows" : "linux";
 
+// Leaving this page — closing the window, reloading it, switching folders — throws away whatever plugins
+// hold in memory (unsaved editor text). Plugins register guards (ctx.window.onBeforeUnload) that may ask
+// the user and veto.
+const leaveGuards = []; // () => boolean | Promise<boolean>; false = stay
+let leaveCheck = null; // one round of questions at a time (e.g. the close button clicked twice)
+function canLeave() {
+  return (leaveCheck ??= (async () => {
+    for (const guard of leaveGuards) {
+      try {
+        if ((await guard()) === false) return false;
+      } catch (e) {
+        console.error("[lite] beforeUnload guard failed", e); // a broken plugin must not trap the window
+      }
+    }
+    return true;
+  })().finally(() => (leaveCheck = null)));
+}
+// The title bar's close button, Alt+F4 and the taskbar all arrive here; Tauri closes unless prevented.
+appWindow.onCloseRequested(async (e) => {
+  if (!(await canLeave())) e.preventDefault();
+});
+
+async function reloadWindow() {
+  if (await canLeave()) location.reload();
+}
+
 /** Switching folders reloads the window, so plugins never need to handle a workspace change. */
-function openWorkspace(path) {
-  location.search = `?folder=${encodeURIComponent(path ?? "")}`;
+async function openWorkspace(path) {
+  if (await canLeave()) location.search = `?folder=${encodeURIComponent(path ?? "")}`;
 }
 
 // ---------- primitives ----------
@@ -216,19 +242,24 @@ function openAbout() {
   const all = [...plugins.values()];
   showAbout({
     appName: appInfo.name,
+    version: `${t("about.version")} ${appInfo.version}`,
     t,
+    settings: [
+      { icon: "palette", label: t("about.theme"), value: localizeTheme(themes.current()).name, run: openThemePicker },
+      { icon: "languages", label: t("about.language"), value: localeName(locale), run: openLanguagePicker },
+      {
+        icon: "puzzle",
+        label: t("about.plugins"),
+        value: t("about.pluginsValue", { active: all.filter((p) => p.status === "active").length, total: all.length }),
+        run: () => executeCommand("plugins.manage"),
+      },
+    ],
     rows: [
-      [t("about.version"), appInfo.version],
       [t("about.tauri"), appInfo.tauri],
       [t("about.engine"), webviewVersion()],
       [t("about.platform"), `${platform} (${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] ?? navigator.platform})`],
-      [t("about.plugins"), t("about.pluginsValue", { active: all.filter((p) => p.status === "active").length, total: all.length })],
       [t("about.workspace"), workspace.root ?? t("about.workspaceNone")],
-      [t("about.language"), localeName(locale)],
-      [t("about.theme"), localizeTheme(themes.current()).name],
     ],
-    onChangeLanguage: openLanguagePicker,
-    onChangeTheme: openThemePicker,
   });
 }
 
@@ -250,7 +281,7 @@ function openLanguagePicker() {
         alert(t("language.saveFailed", { error: String(e) }));
         return;
       }
-      location.reload();
+      reloadWindow();
     },
   });
 }
@@ -321,7 +352,7 @@ function setupPluginManager() {
     tEn,
     list: listPlugins,
     setEnabled: setPluginsEnabled,
-    reload: () => location.reload(),
+    reload: reloadWindow,
     shortcut: keysFor,
     /** What a loaded plugin added to the app (empty for plugins that aren't running). */
     contributions: (pluginId) => ({
@@ -332,7 +363,7 @@ function setupPluginManager() {
     }),
   });
   kernelCommand("plugins.manage", t("pm.cmd.manage"), tEn("pm.cmd.manage"), () => pluginManager.manage());
-  kernelCommand("plugins.reload", t("pm.cmd.reload"), tEn("pm.cmd.reload"), () => location.reload());
+  kernelCommand("plugins.reload", t("pm.cmd.reload"), tEn("pm.cmd.reload"), reloadWindow);
   // Not Ctrl+Shift+X (VS Code's): input methods and chat apps often grab it as a global hotkey.
   bindDefault("ctrl+shift+,", "plugins.manage");
   bindDefault("ctrl+r", "plugins.reload");
@@ -351,6 +382,7 @@ function setupWorkspaceCommands() {
   cmd("workspace.openFolderNewWindow", "cmd.openFolderNewWindow", () => openFolder(true));
   cmd("workspace.newWindow", "cmd.newWindow", () => invoke("open_window", { folder: null }));
   cmd("workspace.close", "cmd.closeFolder", () => workspace.root && openWorkspace(null));
+  cmd("window.close", "cmd.closeWindow", () => appWindow.close());
   bindDefault("ctrl+o", "workspace.openFolder");
   bindDefault("ctrl+shift+n", "workspace.newWindow");
 }
@@ -394,6 +426,21 @@ function createContext(manifest) {
       /** URL for import()/fetch()/<img> — loads lazily, e.g. `await import(ctx.assets.url("lang.js"))`. */
       url: (file) => pluginUrl(manifest.dir, file),
     },
+    /**
+     * The title bar's menu bar. add(menu, items, { order = 100 }) adds one group of items to
+     * "file" | "edit" | "view" | "terminal" | "help" (a menu shows once it has items).
+     * items: { command, args?, label?, keys? } — label defaults to the command's title without its
+     * "Category: " prefix, the shortcut shown is the command's current one (or `keys`, for keys a
+     * widget handles itself) — or { label, run }, or "-".
+     */
+    menubar: {
+      add: (menu, items, options) => titlebar.addMenuItems(menu, items, options),
+    },
+    /**
+     * confirm({ title, body?, buttons: [{ label, value, primary?, danger? }] }) -> the clicked button's
+     * value, or null when dismissed (Escape, click outside).
+     */
+    dialogs: { confirm: showConfirm },
     /** The kernel's title bar: icon buttons on the right (the tooltip shows the command's current shortcut). */
     titlebar: {
       /** { id, icon: Element (e.g. from the icons service), title (localized, no keys), command } */
@@ -406,6 +453,11 @@ function createContext(manifest) {
       startDragging: () => (need("window"), appWindow.startDragging()),
       isMaximized: () => appWindow.isMaximized(),
       onResized: (fn) => appWindow.onResized(fn),
+      /**
+       * fn() -> boolean | Promise<boolean>, asked before this window's page goes away (window closed,
+       * reloaded, another folder opened). Return false to stay — e.g. the user cancelled a "save changes?".
+       */
+      onBeforeUnload: (fn) => void leaveGuards.push(fn),
     },
     commands: {
       /** title: "%key%" (resolved in both languages), a plain string, or { title, titleEn }. */
@@ -510,7 +562,7 @@ function createContext(manifest) {
       list: listPlugins,
       /** ids: one id or an array, applied in a single state write. */
       setEnabled: (ids, enabled) => (need("plugins"), setPluginsEnabled(ids, enabled)),
-      reload: () => (need("plugins"), location.reload()),
+      reload: () => (need("plugins"), reloadWindow()),
     },
     /**
      * Color theme. Stylesheets just use the CSS variables (var(--lite-fg-muted)) and follow switches live;
@@ -712,12 +764,19 @@ async function boot() {
     logo: createLogo,
     aboutTitle: t("about.tooltip", appInfo),
     keysFor,
-    run: (commandId) => executeCommand(commandId).catch((e) => console.error(e)),
+    run: (commandId, ...args) => executeCommand(commandId, ...args).catch((e) => console.error(e)),
+    commandTitle: (commandId) => commands.get(commandId)?.title ?? null,
     openPath: openWorkspace,
     appWindow,
     controls: platform !== "macos",
   });
   defineSlot("titlebar.center", titlebar.center);
+  // The kernel's own menu items; plugins add theirs (ctx.menubar.add) between these groups.
+  titlebar.addMenuItems("file", [{ command: "workspace.openFolder" }, { command: "workspace.openFolderNewWindow" }, { command: "workspace.newWindow" }], { order: 10 });
+  titlebar.addMenuItems("file", [{ command: "app.theme" }, { command: "app.language" }, { command: "plugins.manage" }], { order: 800 });
+  titlebar.addMenuItems("file", [...(workspace.root ? [{ command: "workspace.close" }] : []), { command: "window.close" }], { order: 900 });
+  titlebar.addMenuItems("help", [{ command: "plugins.reload" }], { order: 0 });
+  titlebar.addMenuItems("help", [{ command: "app.about" }], { order: 900 });
 
   const manifests = await invoke("list_plugins");
   await localizeManifests(manifests);

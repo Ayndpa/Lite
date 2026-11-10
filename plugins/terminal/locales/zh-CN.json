@@ -6,7 +6,6 @@
   "action.kill": "终止终端",
   "action.hide": "隐藏面板",
   "action.clear": "清除",
-  "action.toggle": "切换终端",
   "edit.copy": "复制",
   "edit.paste": "粘贴",
   "edit.selectAll": "全选",

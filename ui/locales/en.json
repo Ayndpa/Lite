@@ -11,11 +11,9 @@
   "about.workspace": "Workspace",
   "about.workspaceNone": "None",
   "about.language": "Language",
-  "about.changeLanguage": "Change Language…",
   "about.ok": "OK",
   "language.title": "Display Language",
   "language.auto": "Auto (follow system: {system})",
-  "language.reloadHint": "The window reloads to apply the change.",
   "language.cancel": "Cancel",
   "plugin.error.missing": "Requires \"{dep}\", which is not installed",
   "plugin.error.notLoaded": "Requires \"{dep}\", which is not loaded",
@@ -90,7 +88,6 @@
   "language.saveFailed": "Could not save the language setting: {error}",
   "command.theme": "Preferences: Color Theme",
   "theme.title": "Color Theme",
-  "theme.hint": "Use ↑ ↓ to preview. Applies immediately, no reload.",
   "theme.auto": "Auto (follow the system: dark or light)",
   "theme.customize": "Customize…",
   "theme.source.custom": "Custom",
@@ -100,5 +97,12 @@
   "theme.saveFailed": "Cannot save the theme: {error}",
   "pm.perm.theme": "Change the color theme and save custom themes",
   "about.theme": "Theme",
-  "about.changeTheme": "Change Theme…"
+  "menubar.file": "File",
+  "menubar.edit": "Edit",
+  "menubar.view": "View",
+  "menubar.terminal": "Terminal",
+  "menubar.help": "Help",
+  "cmd.closeWindow": "Window: Close Window",
+  "about.settings": "Settings",
+  "about.details": "Details"
 }

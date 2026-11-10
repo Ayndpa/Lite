@@ -3,7 +3,7 @@
   inset: 0;
   background: var(--lite-bg); /* opaque: covers the kernel's watermark */
   display: grid;
-  grid-template-columns: 48px 260px 1fr;
+  grid-template-columns: 48px var(--wb-sidebar-width, 260px) 1fr;
   grid-template-rows: minmax(0, 1fr) auto; /* status row collapses while the bar is hidden */
   grid-template-areas:
     "activity sidebar main"
@@ -62,7 +62,19 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
+/* Drag handle on the sidebar's right edge */
+.wb-sash-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 5px;
+  z-index: 5;
+  cursor: col-resize;
+}
+.wb-sash-v:hover, .wb-sash-v.dragging { background: var(--lite-accent); }
 .wb-sidebar-title {
   padding: 8px 12px;
   font-size: 11px;

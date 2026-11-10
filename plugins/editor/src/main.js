@@ -11,7 +11,7 @@ import {
 import {
   foldGutter, indentOnInput, syntaxHighlighting, bracketMatching, foldKeymap, HighlightStyle, LanguageDescription,
 } from "@codemirror/language";
-import { history, defaultKeymap, historyKeymap, indentWithTab, selectAll } from "@codemirror/commands";
+import { history, defaultKeymap, historyKeymap, indentWithTab, selectAll, undo, redo } from "@codemirror/commands";
 import { highlightSelectionMatches, searchKeymap, openSearchPanel } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { lintKeymap } from "@codemirror/lint";
@@ -305,22 +305,72 @@ export async function activate(ctx) {
     ctx.events.emit("editor.activeFile", { path: doc?.kind === "text" ? key : null });
   }
 
-  /** Close tabs (asking about unsaved ones); returns false if the user kept one. */
-  function closeTabs(keys) {
-    let keptAll = true;
+  /** Write a text tab to disk (the visible one or a background one); throws if the write fails. */
+  async function saveDoc(key) {
+    const doc = docs.get(key);
+    if (doc?.kind !== "text") return;
+    await ctx.fs.writeText(key, (doc === shownDoc ? view.state : doc.state).doc.toString());
+    doc.dirty = false;
+    renderTabs();
+    ctx.events.emit("file.saved", { path: key }); // e.g. source control refreshes
+  }
+
+  /** Save several tabs; on the first failure tells the user and returns false (nothing more is saved). */
+  async function saveDocs(keys) {
+    for (const key of keys) {
+      try {
+        await saveDoc(key);
+      } catch (e) {
+        await ctx.dialogs.confirm({
+          title: ctx.t("error.save", { name: docs.get(key)?.name ?? key }),
+          body: String(e?.message ?? e),
+          buttons: [{ label: ctx.t("unsaved.ok"), value: true, primary: true }],
+        });
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const dirtyKeys = (keys = [...docs.keys()]) => keys.filter((k) => docs.get(k)?.dirty);
+
+  /**
+   * These tabs are about to go away (tab closed, window closed or reloaded, folder switched): ask about
+   * the unsaved ones — Save / Don't Save / Cancel. Returns false if the user cancelled or a save failed.
+   */
+  async function resolveUnsaved(keys) {
+    const dirty = dirtyKeys(keys);
+    if (!dirty.length) return true;
+    const names = dirty.map((k) => docs.get(k).name);
+    const one = dirty.length === 1;
+    const choice = await ctx.dialogs.confirm({
+      title: one ? ctx.t("unsaved.title", { name: names[0] }) : ctx.t("unsaved.titleMany", { count: dirty.length }),
+      body: one ? ctx.t("unsaved.body") : `${names.join("\n")}\n\n${ctx.t("unsaved.body")}`,
+      buttons: [
+        { label: ctx.t(one ? "unsaved.save" : "unsaved.saveAll"), value: "save", primary: true },
+        { label: ctx.t("unsaved.discard"), value: "discard" },
+        { label: ctx.t("unsaved.cancel"), value: null },
+      ],
+    });
+    if (choice === "save") return saveDocs(dirtyKeys(dirty));
+    return choice === "discard";
+  }
+
+  /** Close tabs, asking first about unsaved ones; resolves false (nothing closed) if the user cancelled. */
+  async function closeTabs(keys) {
+    if (!(await resolveUnsaved(keys))) return false;
     for (const key of keys) {
       const doc = docs.get(key);
       if (!doc) continue;
-      if (doc.dirty && !confirm(ctx.t("confirm.discard", { name: doc.name }))) {
-        keptAll = false;
-        continue;
-      }
       doc.dispose?.();
       docs.delete(key);
     }
     show(docs.has(current) ? current : [...docs.keys()].at(-1) ?? null);
-    return keptAll;
+    return true;
   }
+
+  // Closing or reloading the window, or opening another folder, would drop unsaved text silently.
+  ctx.window.onBeforeUnload(() => resolveUnsaved([...docs.keys()]));
 
   /**
    * Open (or focus) a non-text tab, e.g. a plugin's details page or a diff. render(el) fills it;
@@ -468,14 +518,19 @@ export async function activate(ctx) {
     if (keys.length) closeTabs(keys);
   });
 
-  ctx.commands.register("editor.save", "%cmd.save%", async () => {
-    const doc = docs.get(current);
-    if (doc?.kind !== "text") return;
-    await ctx.fs.writeText(current, view.state.doc.toString());
-    doc.dirty = false;
-    renderTabs();
-    ctx.events.emit("file.saved", { path: current }); // e.g. source control refreshes
-  });
+  ctx.commands.register("editor.save", "%cmd.save%", () => current && saveDocs([current]));
+  ctx.commands.register("editor.saveAll", "%cmd.saveAll%", () => saveDocs(dirtyKeys()));
+  // Undo / redo / find for the Edit menu (the keys themselves are handled by CodeMirror's keymap).
+  // A focused text field elsewhere (commit message, search box, …) gets the browser's own undo.
+  const historyCommand = (cmCommand, execName) => () => {
+    if (document.activeElement?.matches?.("input, textarea")) return void document.execCommand(execName);
+    if (shownDoc?.kind !== "text") return;
+    cmCommand(view);
+    view.focus();
+  };
+  ctx.commands.register("editor.undo", "%cmd.undo%", historyCommand(undo, "undo"));
+  ctx.commands.register("editor.redo", "%cmd.redo%", historyCommand(redo, "redo"));
+  ctx.commands.register("editor.find", "%cmd.find%", () => shownDoc?.kind === "text" && openSearchPanel(view));
   ctx.commands.register("editor.close", "%cmd.close%", () => current && closeTabs([current]));
   ctx.commands.register("editor.closeOthers", "%cmd.closeOthers%", () => closeTabs([...docs.keys()].filter((k) => k !== current)));
   ctx.commands.register("editor.closeSaved", "%cmd.closeSaved%", () => closeTabs([...docs.keys()].filter((k) => !docs.get(k).dirty)));
@@ -508,5 +563,8 @@ export async function activate(ctx) {
     },
   });
 
-  ctx.titlebar.addButton({ id: "save", icon: icons.create("save"), title: ctx.t("button.save"), command: "editor.save" });
+  ctx.menubar.add("file", [{ command: "editor.save" }, { command: "editor.saveAll" }], { order: 100 });
+  ctx.menubar.add("file", [{ command: "editor.close" }, { command: "editor.closeAll" }], { order: 200 });
+  ctx.menubar.add("edit", [{ command: "editor.undo", keys: "Ctrl+Z" }, { command: "editor.redo", keys: "Ctrl+Y" }], { order: 100 });
+  ctx.menubar.add("edit", [{ command: "editor.find", keys: "Ctrl+F" }], { order: 200 });
 }

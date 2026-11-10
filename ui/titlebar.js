@@ -1,7 +1,7 @@
 // Kernel-owned title bar. Projects (folders) are a kernel concept, so the bar that shows and switches
-// them is the kernel's too: logo (About), project menu (open / recent / new window / close) and the
-// window controls. Plugins only add to it: the "titlebar.center" slot (e.g. the palette's search box)
-// and icon buttons via ctx.titlebar.addButton.
+// them is the kernel's too: logo (About), the menu bar (File, Edit, …), project menu (open / recent /
+// new window / close) and the window controls. Plugins only add to it: menu items via ctx.menubar.add,
+// the "titlebar.center" slot (e.g. the palette's search box) and icon buttons via ctx.titlebar.addButton.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 // The few Lucide icons the bar needs, inlined: the kernel can't depend on the icons plugin (it may be off).
@@ -34,10 +34,14 @@ function icon(name, size = 16, className = "") {
   return svg;
 }
 
+/** Top-level menus, in order; one only shows once it has items. Titles: "menubar.<id>" in the kernel's locales. */
+const MENUS = ["file", "edit", "view", "terminal", "help"];
+
 /**
  * opts: { t, workspace: { root, name }, recent(), logo(size), aboutTitle, keysFor(commandId),
- *         run(commandId), openPath(path), appWindow, controls: show window buttons }
- * Returns { center (element for the "titlebar.center" slot), addButton }.
+ *         run(commandId, ...args), commandTitle(commandId) -> title | null, openPath(path), appWindow,
+ *         controls: show window buttons }
+ * Returns { center (element for the "titlebar.center" slot), addButton, addMenuItems }.
  */
 export function mountTitlebar(opts) {
   const { t, workspace: ws, appWindow } = opts;
@@ -48,6 +52,7 @@ export function mountTitlebar(opts) {
     <div class="tb-side tb-left">
       <button class="tb-logo"></button>
       <button class="tb-project"><span class="tb-project-name"></span></button>
+      <div class="tb-menubar" role="menubar"></div>
     </div>
     <div class="tb-center"></div>
     <div class="tb-side tb-right">
@@ -109,8 +114,71 @@ export function mountTitlebar(opts) {
     appWindow.onResized(syncMaximized);
   }
 
-  // ----- project menu -----
+  // ----- dropdown shared by the project menu and the menu bar (one open at a time) -----
   const menu = $(".tb-menu");
+  let anchor = null; // the button whose menu is open
+  function openAt(btn, compact) {
+    anchor?.classList.remove("open");
+    anchor = btn;
+    btn.classList.add("open");
+    menu.classList.toggle("tb-menu-compact", compact);
+    menu.style.left = `${Math.max(4, btn.offsetLeft)}px`;
+    menu.hidden = false;
+  }
+  const closeMenu = () => {
+    menu.hidden = true;
+    anchor?.classList.remove("open");
+    anchor = null;
+  };
+  // Clicking in a menu must not take focus from the editor: Edit > Undo acts on what was focused.
+  menu.addEventListener("mousedown", (e) => e.preventDefault());
+
+  // ----- menu bar -----
+  const menubar = $(".tb-menubar");
+  const menuGroups = new Map(); // menu id -> [{ order, items }]
+  /** "File: Save" -> "Save": inside a menu the category prefix is noise. */
+  const menuLabel = (title) => title.replace(/^[^:：]+[:：]\s*/, "");
+  function openBarMenu(id, btn) {
+    menu.replaceChildren();
+    // A line between groups; groups with the same order (from different plugins) run together.
+    const groups = [...menuGroups.get(id)].sort((a, b) => a.order - b.order);
+    const rows = groups.flatMap((g, i) => (i && g.order !== groups[i - 1].order ? ["-", ...g.items] : g.items));
+    rows.forEach((it, i) => {
+      if (it === "-") {
+        // No doubled, leading or trailing separators.
+        if (i && rows[i - 1] !== "-" && i < rows.length - 1) menu.append(Object.assign(document.createElement("div"), { className: "tb-menu-line" }));
+        return;
+      }
+      const title = it.command ? opts.commandTitle(it.command) : null;
+      const disabled = it.command ? title == null : !it.run;
+      const el = document.createElement("div");
+      el.className = `tb-menu-item${disabled ? " disabled" : ""}`;
+      el.setAttribute("role", "menuitem");
+      el.innerHTML = `<span class="tb-menu-label"></span><small></small>`;
+      el.querySelector(".tb-menu-label").textContent = it.label ?? menuLabel(title ?? it.command);
+      el.querySelector("small").textContent = it.keys ?? (it.command ? opts.keysFor(it.command) : "");
+      if (!disabled) el.onclick = () => { closeMenu(); it.command ? opts.run(it.command, ...(it.args ?? [])) : it.run(); };
+      menu.append(el);
+    });
+    openAt(btn, true);
+  }
+  function renderMenubar() {
+    menubar.replaceChildren();
+    for (const id of MENUS) {
+      if (!menuGroups.get(id)?.length) continue;
+      const btn = document.createElement("button");
+      btn.className = "tb-menubar-item";
+      btn.setAttribute("role", "menuitem");
+      btn.textContent = t(`menubar.${id}`);
+      btn.onmousedown = (e) => e.preventDefault(); // keep focus where it is
+      btn.onclick = () => (anchor === btn ? closeMenu() : openBarMenu(id, btn));
+      // Like every menu bar: once one menu is open, moving along the bar switches menus.
+      btn.onmouseenter = () => anchor && anchor !== btn && menubar.contains(anchor) && openBarMenu(id, btn);
+      menubar.append(btn);
+    }
+  }
+
+  // ----- project menu -----
   function item(iconName, label, run, hint = "") {
     const el = document.createElement("div");
     el.className = "tb-menu-item";
@@ -133,13 +201,13 @@ export function mountTitlebar(opts) {
       menu.append(Object.assign(document.createElement("div"), { className: "tb-menu-sep", textContent: t("menu.recent") }));
       for (const p of recent) item("rotate-ccw-clock", p.split(/[\\/]/).pop() || p, () => opts.openPath(p), p);
     }
-    menu.hidden = false;
+    openAt(projectBtn, false);
   }
-  const closeMenu = () => (menu.hidden = true);
-  projectBtn.onclick = () => (menu.hidden ? openMenu() : closeMenu());
+  projectBtn.onclick = () => (anchor === projectBtn ? closeMenu() : openMenu());
   document.addEventListener("mousedown", (e) => {
-    if (!menu.hidden && !menu.contains(e.target) && !projectBtn.contains(e.target)) closeMenu();
+    if (anchor && !menu.contains(e.target) && !anchor.contains(e.target) && !menubar.contains(e.target)) closeMenu();
   });
+  window.addEventListener("blur", closeMenu);
   window.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
 
   const buttons = $(".tb-buttons");
@@ -151,6 +219,18 @@ export function mountTitlebar(opts) {
       btn.dataset.id = id;
       btn.dataset.plugin = plugin;
       buttons.append(btn);
+    },
+    /**
+     * Add one group of items to a top-level menu ("file" | "edit" | "view" | "terminal" | "help").
+     * items: { command, args?, label?, keys? } (label defaults to the command's title without its
+     * "Category: " prefix; greyed out while the command doesn't exist), { label, run } or "-".
+     * Groups are sorted by order (default 100) and separated by lines; groups of equal order run together.
+     */
+    addMenuItems(id, items, { order = 100 } = {}) {
+      if (!MENUS.includes(id)) throw new Error(`Unknown menu: ${id}`);
+      if (!menuGroups.has(id)) menuGroups.set(id, []);
+      menuGroups.get(id).push({ order, items });
+      renderMenubar();
     },
   };
 }

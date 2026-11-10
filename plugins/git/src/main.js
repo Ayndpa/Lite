@@ -599,6 +599,7 @@ export async function activate(ctx) {
     if (entry) openDiff(entry, !st.unstaged.includes(entry));
   });
   ctx.keybindings.bind("ctrl+shift+g", "git.focus");
+  ctx.menubar.add("view", [{ command: "git.focus" }], { order: 100 });
 
   // ---------- staying current ----------
 

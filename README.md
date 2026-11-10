@@ -25,7 +25,7 @@ tools/       开发期构建（esbuild）：共享模块 + 插件 src/ 打包
   shared/context-menu.js  右键菜单的共享源码：不是插件也不是服务，构建时给每个用到的插件各打一份，
                           运行时各插件自管自己的菜单、互不依赖
 ui/          UI 内核：插件加载（依赖排序 + 激活超时）、命令、快捷键、事件、slot、service、权限
-  titlebar.js       内核的标题栏：Logo（About）、项目切换菜单（打开/新窗口/关闭/最近）、窗口控制；
+  titlebar.js       内核的标题栏：Logo（About）、菜单栏（文件/编辑/视图/终端/帮助，插件用 ctx.menubar.add 加菜单项）、项目切换菜单（打开/新窗口/关闭/最近）、窗口控制；
                     插件只往里加东西："titlebar.center" slot（命令面板的搜索框）和 ctx.titlebar.addButton
   shell.js          内核自己的 UI：Logo 水印背景（点击打开 About）、About、语言选择
   plugin-manager.js 内置插件管理（不是插件，不能被禁用）：列表（悬停快捷启用/禁用、右键菜单）+ 详情页
@@ -37,7 +37,7 @@ plugins/
                     文件/文件夹图标用 Material Icon Theme（MIT，v5.40.0，按 VS Code 规则匹配文件名/扩展名/文件夹名，
                     file-icons.json + file-icons/*.svg 由 tools/build.mjs 生成），资源管理器、编辑器标签、Git 都在用
   workbench/        布局（顶栏/活动栏/侧栏/主区/底部面板/状态栏），定义 slot 和 `workbench` service；
-                    底部面板可拖动调高度（记住高度），showPanel/hidePanel/togglePanel，
+                    侧栏可拖动调宽度（记住宽度），底部面板可拖动调高度（记住高度），showPanel/hidePanel/togglePanel，
                     setPanelMaximized/togglePanelMaximized（面板盖住编辑区，隐藏后再打开仍保持最大化）
   terminal/         集成终端（xterm.js，首次打开才加载）：Ctrl+` 切换、Ctrl+Shift+` 新建，多终端，
                     面板标题栏「最大化面板」按钮（或命令「终端: 切换最大化面板」）让终端盖住整个编辑区，再点还原；
@@ -54,6 +54,7 @@ plugins/
   explorer/         工作区文件树：右键菜单（新建文件/文件夹、重命名 F2、删除到回收站、复制路径、在系统文件管理器中显示），
                     单击预览（焦点留在树上）、双击/回车进入编辑器；发出 file.open / file.renamed / file.deleted
   editor/           代码编辑器（CodeMirror 6）：多标签（右键菜单、中键关闭）、搜索、多光标、折叠……；
+                    关闭有未保存修改的标签、关闭或重新加载窗口、切换文件夹时询问「保存 / 不保存 / 取消」；
                     提供 `editor` service（语言注册、openPage 打开非文本标签页、viewerExtensions/languageFor
                     给只读查看器用同样的外观和高亮）；保存后发出 file.saved，收到 file.changed 重载未修改的文件；
                     和共享模块 @codemirror/* @lezer/*（vendor/，由 tools/build.mjs 生成）
@@ -78,6 +79,7 @@ plugins/
 插件能做的只有往里加：
 
 - `ctx.slots.contribute("titlebar.center", el => …)`：中间区域（命令面板放搜索框）。
+- `ctx.menubar.add(menu, items, { order })`：菜单栏（文件 / 编辑 / 视图 / 终端 / 帮助，Logo 右边）。`menu` 是 `"file" | "edit" | "view" | "terminal" | "help"`，有菜单项的菜单才显示；`items` 是 `{ command, label?, keys?, args? }`、`{ label, run }` 或 `"-"`。标签默认取命令标题去掉「分类: 」前缀，快捷键取命令当前的绑定，命令不存在时置灰。每次 `add` 是一组，按 `order`（默认 100）排序，组间画分隔线，`order` 相同的组连在一起。
 - `ctx.titlebar.addButton({ id, icon, title, command })`：右侧图标按钮，`icon` 是插件自己创建的元素（通常来自 `icons` 服务），提示里自动带上命令当前的快捷键。
 
 ## 快捷键
@@ -89,7 +91,7 @@ plugins/
 
 ## 颜色主题
 
-- 内置「深色」「浅色」（`ui/themes/*.json`），另有「自动」跟随系统深浅色；默认深色。从 About（点 Logo）→「更改主题…」或命令「首选项: 颜色主题」打开选择框，上下键实时预览，选中立即生效，不重新加载，其他窗口同步切换。
+- 内置「深色」「浅色」（`ui/themes/*.json`），另有「自动」跟随系统深浅色；默认深色。从 About（点 Logo）→「主题」或命令「首选项: 颜色主题」打开选择框，上下键实时预览，选中立即生效，不重新加载，其他窗口同步切换。
 - 主题是 `{ id, name, type: "dark" | "light", colors: { token: CSS 值 } }`。每个 token 变成 `:root` 上的 CSS 变量：`fg.muted` → `--lite-fg-muted`。可以只写一部分 token，没写的取自同 `type` 的内置主题。完整的 token 列表见 `ui/themes/dark.json`。
 - 插件样式里只用变量（`color: var(--lite-fg-muted)`），不写死颜色，切主题自动跟上。需要真实颜色值的代码（例如 xterm 画布）用 `ctx.theme.current().colors` 和 `ctx.theme.onChange(fn)`。
 - 插件可以自带主题：manifest 里写 `"themes": ["themes/x.json"]`，内核在插件代码运行前读取。
@@ -98,7 +100,7 @@ plugins/
 
 ## 多语言（en / zh-CN）
 
-- 默认跟随系统语言；在 About（点 Logo）→「更改语言…」或命令「首选项: 配置显示语言」里切换，保存在 `state.json` 的 `locale`，切换后窗口重新加载。
+- 默认跟随系统语言；在 About（点 Logo）→「语言」或命令「首选项: 配置显示语言」里切换，保存在 `state.json` 的 `locale`，切换后窗口重新加载。
 - 内核文案在 `ui/locales/<locale>.json`，每个插件的在 `plugins/<id>/locales/<locale>.json`。英文是兜底：中文包缺的 key 显示英文，都缺就显示 key 本身。
 - manifest 里写 `"name": "%name%"`、`"description": "%description%"`，由内核从语言包解析。
 - 插件里用 `ctx.t("key", { 参数 })`；`ctx.t.en(...)` 永远返回英文。
@@ -179,6 +181,9 @@ export async function activate(ctx) {
 | `git.run(args, { stdin })` | 需要 `"git"` 权限；在工作区目录运行系统的 git，返回 `{ code, stdout, stderr }`（不弹控制台、不提示输入凭据） |
 | `openExternal(url)` | 用系统默认浏览器打开 http(s) 链接 |
 | `titlebar.addButton({ id, icon, title, command })` | 标题栏右侧按钮 |
+| `menubar.add(menu, items, { order })` | 往标题栏的菜单栏里加一组菜单项 |
+| `dialogs.confirm({ title, body, buttons })` | 内核的确认框；`buttons: [{ label, value, primary?, danger? }]`，返回所点按钮的 `value`，按 Esc 或点外面返回 `null` |
+| `window.onBeforeUnload(fn)` | 窗口关闭、重新加载、切换文件夹之前调用；`fn` 返回（或异步返回）`false` 就留下，例如编辑器询问是否保存 |
 | `window.minimize/toggleMaximize/close/startDragging` | 需要 `"window"` 权限 |
 | `plugins.list/setEnabled/reload` | 需要 `"plugins"` 权限 |
 | `theme.current/color/cssVar/onChange/list/get/defaults/preference` | 当前颜色主题和所有主题；`onChange` 在切换或预览时回调 |
