@@ -1,0 +1,21 @@
+{
+  "name": "终端",
+  "description": "底部面板中的集成终端：使用系统默认 Shell（Windows 上是 PowerShell，其他系统读取 $SHELL），在工作区文件夹中启动。首次打开终端时才加载 xterm.js。",
+  "panel.title": "终端",
+  "action.new": "新建终端",
+  "action.kill": "终止终端",
+  "action.hide": "隐藏面板",
+  "action.clear": "清除",
+  "action.toggle": "切换终端",
+  "edit.copy": "复制",
+  "edit.paste": "粘贴",
+  "edit.selectAll": "全选",
+  "error.spawn": "无法启动终端：{error}",
+  "cmd.toggle": "视图: 切换终端",
+  "cmd.new": "终端: 新建终端",
+  "cmd.kill": "终端: 终止活动终端",
+  "cmd.clear": "终端: 清除",
+  "action.maximize": "最大化面板",
+  "action.restore": "还原面板大小",
+  "cmd.toggleMaximize": "终端: 切换最大化面板"
+}

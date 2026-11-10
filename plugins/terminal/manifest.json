@@ -1,0 +1,10 @@
+{
+  "id": "terminal",
+  "name": "%name%",
+  "version": "0.1.0",
+  "description": "%description%",
+  "main": "main.js",
+  "styles": ["style.css"],
+  "dependencies": ["workbench", "icons"],
+  "permissions": ["terminal"]
+}

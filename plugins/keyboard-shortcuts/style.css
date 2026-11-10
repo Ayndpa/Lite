@@ -1,0 +1,92 @@
+.ks-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.ks-overlay[hidden] { display: none; }
+
+.ks-panel {
+  width: min(920px, 94vw);
+  height: min(640px, 86vh);
+  display: flex;
+  flex-direction: column;
+  background: #252830;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+.ks-panel header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ks-heading { font-weight: 600; white-space: nowrap; }
+.ks-search {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #ddd;
+  font: inherit;
+  outline: none;
+}
+.ks-search:focus { border-color: #4d8bf5; }
+
+.ks-list { overflow: auto; flex: 1; }
+.ks-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.1fr) minmax(220px, 1.4fr) 64px auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ks-row:hover { background: rgba(255, 255, 255, 0.03); }
+.ks-command { display: flex; flex-direction: column; min-width: 0; }
+.ks-title { color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ks-command small { color: #666; font-size: 11px; }
+.ks-bindings { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ks-binding, .ks-recorder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.ks-recorder {
+  padding: 4px 6px;
+  border: 1px dashed #4d8bf5;
+  border-radius: 4px;
+  background: rgba(77, 139, 245, 0.08);
+}
+.ks-keys { display: inline-flex; gap: 3px; }
+.ks-keys kbd {
+  min-width: 14px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ddd;
+  font: 12px system-ui, "Segoe UI", sans-serif;
+  text-align: center;
+}
+.ks-none { color: #555; }
+.ks-warning { color: #e0a060; font-size: 12px; }
+.ks-hint { color: #8ab4f8; font-size: 12px; }
+.ks-source { color: #777; font-size: 12px; }
+.ks-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+.ks-btn {
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ks-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }

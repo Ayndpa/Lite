@@ -1,0 +1,4 @@
+{
+  "name": "Markdown Language Support",
+  "description": "Syntax highlighting, indentation and folding for Markdown (.md .markdown). The parser loads only when such a file is opened."
+}

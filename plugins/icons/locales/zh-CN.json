@@ -1,0 +1,4 @@
+{
+  "name": "Lucide 图标",
+  "description": "基于 Lucide 的图标主题（ISC 许可，v1.69.0）。提供 `icons` 服务：icons.create(name) -> <svg>。"
+}

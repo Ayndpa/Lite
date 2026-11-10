@@ -1,0 +1,4 @@
+{
+  "name": "HTML Language Support",
+  "description": "Syntax highlighting, indentation and folding for HTML (.html .htm .xhtml). The parser loads only when such a file is opened."
+}

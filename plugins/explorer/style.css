@@ -1,0 +1,123 @@
+.ex-root {
+  padding: 2px 12px 4px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #bbb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ex-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.ex-twisty { width: 14px; flex: none; color: #888; }
+.ex-kind { color: #8ab4f8; }
+.ex-row .icon-file { color: #999; }
+.ex-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-row:hover { background: rgba(255, 255, 255, 0.05); }
+.ex-row.selected { background: rgba(77, 139, 245, 0.3); }
+.ex-error { padding: 8px; color: #e57373; font-size: 12px; }
+
+/* The tree fills the view so the blank space below the items takes right-clicks too. */
+.ex-view { display: flex; flex-direction: column; min-height: 100%; }
+.ex-view[hidden] { display: none; }
+.ex-tree { flex: 1; outline: none; padding-bottom: 12px; }
+.ex-tree:focus .ex-row.selected { box-shadow: inset 0 0 0 1px #4d8bf5; }
+
+/* Inline name input (new file / folder, rename) */
+.ex-input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid #4d8bf5;
+  border-radius: 2px;
+  outline: none;
+  background: #1b1d22;
+  color: #eee;
+  font: inherit;
+}
+.ex-input.invalid { border-color: #f44747; }
+.ex-input-msg {
+  margin: 0 8px 2px 30px;
+  padding: 3px 8px;
+  border: 1px solid #be1100;
+  background: #5a1d1d;
+  color: #f2d0d0;
+  font-size: 12px;
+}
+.ex-input-msg[hidden] { display: none; }
+
+/* Confirmation / error dialog */
+.ex-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.ex-dialog {
+  width: min(420px, 90vw);
+  padding: 16px 18px;
+  background: #252830;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+.ex-dialog h3 { margin: 0 0 8px; font-size: 15px; color: #eee; overflow-wrap: anywhere; }
+.ex-dialog p { margin: 0 0 16px; color: #aaa; }
+.ex-dialog p:empty { display: none; }
+.ex-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ex-btn {
+  padding: 5px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ddd;
+  font: inherit;
+  cursor: pointer;
+}
+.ex-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.ex-btn:focus-visible { outline: 2px solid #4d8bf5; outline-offset: 1px; }
+.ex-btn-danger { background: #b3261e; border-color: #b3261e; color: #fff; }
+.ex-btn-danger:hover { background: #c9372c; }
+
+.ex-empty { padding: 8px 12px; color: #999; }
+.ex-empty p { margin: 4px 0 10px; }
+.ex-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px;
+  border: 0;
+  border-radius: 3px;
+  background: #2d5aa0;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.ex-open:hover { background: #3768b5; }
+.ex-recent { margin-top: 12px; }
+.ex-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  color: #6ea0f5;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ex-recent-item:hover { text-decoration: underline; }

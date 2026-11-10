@@ -1,0 +1,4 @@
+{
+  "name": "Python Language Support",
+  "description": "Syntax highlighting, indentation and folding for Python (.py .pyw .pyi). The parser loads only when such a file is opened."
+}

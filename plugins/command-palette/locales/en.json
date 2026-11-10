@@ -1,0 +1,13 @@
+{
+  "name": "Command Palette",
+  "description": "Search and run any registered command. Needs no other plugin.",
+  "cmd.show": "Show Command Palette",
+  "hint.show": "Show All Commands",
+  "placeholder": "Type a command…",
+  "empty": "No matching commands",
+  "edit.cut": "Cut",
+  "edit.copy": "Copy",
+  "edit.paste": "Paste",
+  "edit.selectAll": "Select All",
+  "search": "Search commands"
+}

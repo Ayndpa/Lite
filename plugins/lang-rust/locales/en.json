@@ -1,0 +1,4 @@
+{
+  "name": "Rust Language Support",
+  "description": "Syntax highlighting, indentation and folding for Rust (.rs). The parser loads only when such a file is opened."
+}

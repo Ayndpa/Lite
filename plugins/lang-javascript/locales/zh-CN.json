@@ -1,0 +1,4 @@
+{
+  "name": "JavaScript / TypeScript 语言支持",
+  "description": "JavaScript / TypeScript（.js .mjs .cjs .jsx .ts .mts .cts .tsx）的语法高亮、缩进和折叠。解析器只在打开这类文件时才加载。"
+}

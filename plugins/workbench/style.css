@@ -1,0 +1,112 @@
+.wb {
+  position: absolute;
+  inset: 0;
+  background: var(--lite-bg); /* opaque: covers the kernel's watermark */
+  display: grid;
+  grid-template-columns: 48px 260px 1fr;
+  grid-template-rows: minmax(0, 1fr) auto; /* status row collapses while the bar is hidden */
+  grid-template-areas:
+    "activity sidebar main"
+    "status   status  status";
+}
+
+.wb.no-sidebar { grid-template-columns: 48px 0 1fr; }
+.wb.no-sidebar .wb-sidebar { display: none; }
+
+.wb-activity {
+  grid-area: activity;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+  gap: 4px;
+}
+.wb-activity-item {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wb-activity-item:hover, .wb-activity-item.active { color: #fff; }
+.wb-activity-item { position: relative; }
+.wb-badge {
+  position: absolute;
+  right: 3px;
+  bottom: 5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #2d5aa0;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+.wb-activity-item.active { border-left-color: #4d8bf5; }
+
+.wb-sidebar {
+  grid-area: sidebar;
+  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.wb-sidebar-title {
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+}
+.wb-sidebar-body { flex: 1; overflow: auto; }
+
+.wb-center { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.wb-main { flex: 1; position: relative; min-width: 0; min-height: 0; }
+
+/* Bottom panel + its drag handle */
+.wb-sash {
+  flex: none;
+  height: 5px;
+  margin: -2px 0;
+  position: relative;
+  z-index: 5;
+  cursor: row-resize;
+}
+.wb-sash:hover, .wb-sash.dragging { background: #4d8bf5; }
+.wb-panel {
+  flex: none;
+  position: relative;
+  min-height: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+.wb-sash[hidden], .wb-panel[hidden] { display: none; }
+/* Maximized panel: the editor area stays mounted (keeps its state) but out of sight. */
+.wb-center.panel-max .wb-main { display: none; }
+.wb-center.panel-max .wb-panel { flex: 1; height: auto !important; border-top: 0; }
+
+.wb-status[hidden] { display: none; }
+.wb-status {
+  grid-area: status;
+  height: 22px;
+  background: #2d5aa0;
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+}
+.wb-status-left, .wb-status-right { display: flex; gap: 14px; }

@@ -1,0 +1,13 @@
+{
+  "name": "命令面板",
+  "description": "搜索并运行任何已注册的命令。不依赖其他插件。",
+  "cmd.show": "显示命令面板",
+  "hint.show": "显示所有命令",
+  "placeholder": "输入命令（中英文均可）…",
+  "empty": "没有匹配的命令",
+  "edit.cut": "剪切",
+  "edit.copy": "复制",
+  "edit.paste": "粘贴",
+  "edit.selectAll": "全选",
+  "search": "搜索命令"
+}

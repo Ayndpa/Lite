@@ -1,0 +1,30 @@
+{
+  "id": "editor",
+  "name": "%name%",
+  "version": "0.1.0",
+  "description": "%description%",
+  "main": "main.js",
+  "styles": [
+    "style.css"
+  ],
+  "dependencies": [
+    "workbench",
+    "icons"
+  ],
+  "permissions": [
+    "fs"
+  ],
+  "modules": {
+    "@codemirror/state": "vendor/codemirror-state.js",
+    "@codemirror/view": "vendor/codemirror-view.js",
+    "@codemirror/language": "vendor/codemirror-language.js",
+    "@codemirror/commands": "vendor/codemirror-commands.js",
+    "@codemirror/search": "vendor/codemirror-search.js",
+    "@codemirror/autocomplete": "vendor/codemirror-autocomplete.js",
+    "@codemirror/lint": "vendor/codemirror-lint.js",
+    "@codemirror/merge": "vendor/codemirror-merge.js",
+    "@lezer/common": "vendor/lezer-common.js",
+    "@lezer/lr": "vendor/lezer-lr.js",
+    "@lezer/highlight": "vendor/lezer-highlight.js"
+  }
+}

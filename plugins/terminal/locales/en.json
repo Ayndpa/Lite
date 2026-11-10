@@ -1,0 +1,21 @@
+{
+  "name": "Terminal",
+  "description": "Integrated terminal in the bottom panel: your default shell (PowerShell on Windows, $SHELL elsewhere), started in the workspace folder. xterm.js loads only when the first terminal opens.",
+  "panel.title": "Terminal",
+  "action.new": "New Terminal",
+  "action.kill": "Kill Terminal",
+  "action.hide": "Hide Panel",
+  "action.clear": "Clear",
+  "action.toggle": "Toggle Terminal",
+  "edit.copy": "Copy",
+  "edit.paste": "Paste",
+  "edit.selectAll": "Select All",
+  "error.spawn": "Couldn't start the terminal: {error}",
+  "cmd.toggle": "View: Toggle Terminal",
+  "cmd.new": "Terminal: Create New Terminal",
+  "cmd.kill": "Terminal: Kill the Active Terminal",
+  "cmd.clear": "Terminal: Clear",
+  "action.maximize": "Maximize Panel Size",
+  "action.restore": "Restore Panel Size",
+  "cmd.toggleMaximize": "Terminal: Toggle Maximized Panel"
+}

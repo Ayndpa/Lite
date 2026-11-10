@@ -1,0 +1,78 @@
+.ed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-tabs {
+  display: flex;
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.25);
+  min-height: 32px;
+}
+.ed-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  color: #999;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ed-tab.active { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.ed-tab button {
+  border: 0;
+  background: none;
+  color: inherit;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ed-tab button:hover { background: rgba(255, 255, 255, 0.1); }
+.ed-tab .ed-dirty { display: none; fill: currentColor; }
+.ed-tab.dirty .ed-close { display: none; }
+.ed-tab.dirty .ed-dirty { display: block; }
+.ed-tab.dirty button:hover .ed-close { display: block; }
+.ed-tab.dirty button:hover .ed-dirty { display: none; }
+/* CodeMirror fills this; its own theme lives in src/main.js */
+.ed-host { flex: 1; min-height: 0; }
+.ed-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  font-size: 16px;
+}
+/* Non-text tabs (e.g. plugin details) */
+.ed-page-host { flex: 1; min-height: 0; overflow: auto; }
+.ed-tab-icon { color: #8ab4f8; margin-right: -2px; }
+
+.ed-host[hidden], .ed-page-host[hidden], .ed-empty[hidden] { display: none; }
+
+.ed-status-lang { margin-left: 14px; }
+.ed-status-action { cursor: pointer; }
+.ed-status-action:hover { text-decoration: underline; }
+
+/* Loading a file: only becomes visible after 150 ms, so small files never flash it. The spin is a
+   transform animation, which the compositor keeps running even while the main thread is busy. */
+.ed-loading {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #888;
+  opacity: 0;
+  animation: ed-fade-in 0.2s ease-out 150ms forwards;
+}
+@keyframes ed-fade-in { to { opacity: 1; } }
+.ed-spin { animation: ed-spin 0.9s linear infinite; will-change: transform; }
+@keyframes ed-spin { to { transform: rotate(360deg); } }

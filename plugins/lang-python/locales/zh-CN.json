@@ -1,0 +1,4 @@
+{
+  "name": "Python 语言支持",
+  "description": "Python（.py .pyw .pyi）的语法高亮、缩进和折叠。解析器只在打开这类文件时才加载。"
+}

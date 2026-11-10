@@ -1,0 +1,4 @@
+{
+  "name": "Lucide Icons",
+  "description": "Icon theme backed by Lucide (ISC, v1.69.0). Provides the `icons` service: icons.create(name) -> <svg>."
+}

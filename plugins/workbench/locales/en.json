@@ -1,0 +1,7 @@
+{
+  "name": "Workbench",
+  "description": "VS Code style layout: activity bar, sidebar, main area, status bar. Provides the `workbench` service and slots.",
+  "cmd.toggleSidebar": "View: Toggle Sidebar",
+  "view.plugins": "Plugins",
+  "button.sidebar": "Toggle Sidebar"
+}
