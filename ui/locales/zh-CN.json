@@ -87,5 +87,18 @@
   "window.maximize": "最大化",
   "window.restore": "向下还原",
   "window.close": "关闭",
-  "language.saveFailed": "无法保存语言设置：{error}"
+  "language.saveFailed": "无法保存语言设置：{error}",
+  "command.theme": "首选项: 颜色主题",
+  "theme.title": "颜色主题",
+  "theme.hint": "用 ↑ ↓ 预览，选中后立即生效，不需要重新加载。",
+  "theme.auto": "自动（跟随系统：深色或浅色）",
+  "theme.customize": "自定义…",
+  "theme.source.custom": "自定义",
+  "theme.source.plugin": "插件",
+  "theme.name.dark": "深色",
+  "theme.name.light": "浅色",
+  "theme.saveFailed": "无法保存主题：{error}",
+  "pm.perm.theme": "更改颜色主题、保存自定义主题",
+  "about.theme": "主题",
+  "about.changeTheme": "更改主题…"
 }

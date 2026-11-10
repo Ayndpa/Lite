@@ -42,14 +42,16 @@ export async function activate(ctx) {
 
   // The theme's keys are mostly lowercase; match case-insensitively like VS Code does.
   const lower = (map) => Object.fromEntries(Object.entries(map).map(([k, v]) => [k.toLowerCase(), v]));
-  const fileNames = lower(theme.fileNames);
-  const fileExtensions = lower(theme.fileExtensions);
-  const folderNames = lower(theme.folderNames);
-  const folderNamesExpanded = lower(theme.folderNamesExpanded);
+  const MAPS = ["fileNames", "fileExtensions", "folderNames", "folderNamesExpanded"];
+  // Light color themes use the theme's light overrides on top of the default (dark) mappings.
+  const maps = {
+    dark: Object.fromEntries(MAPS.map((m) => [m, lower(theme[m])])),
+    light: Object.fromEntries(MAPS.map((m) => [m, { ...lower(theme[m]), ...lower(theme.light[m]) }])),
+  };
   const baseName = (path) => path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
 
   /** Theme icon id for a file: exact name first, then the longest extension ("a.test.ts" -> "test.ts", "ts"). */
-  function fileIconId(path) {
+  function fileIconId(path, { fileNames, fileExtensions }) {
     const name = baseName(path).toLowerCase();
     if (fileNames[name]) return fileNames[name];
     for (let i = name.indexOf("."); i !== -1; i = name.indexOf(".", i + 1)) {
@@ -59,15 +61,21 @@ export async function activate(ctx) {
     return theme.file;
   }
 
-  function folderIconId(path, { open = false, root = false } = {}) {
+  function folderIconId(path, { open = false, root = false } = {}, { folderNames, folderNamesExpanded }) {
     if (root) return open ? theme.rootFolderExpanded : theme.rootFolder;
     const name = baseName(path).toLowerCase();
     return (open ? folderNamesExpanded[name] : folderNames[name]) ?? (open ? theme.folderExpanded : theme.folder);
   }
 
-  function img(id, { size = 16, className = "" } = {}) {
+  const srcOf = (id) => ctx.assets.url(`file-icons/${theme.icons[id]}`);
+  let type = ctx.theme.current().type;
+
+  /** resolveId(maps) -> icon id; both variants are kept on the element so a theme switch can swap it. */
+  function img(resolveId, { size = 16, className = "" } = {}) {
     const el = document.createElement("img");
-    el.src = ctx.assets.url(`file-icons/${theme.icons[id]}`);
+    el.dataset.dark = resolveId(maps.dark);
+    el.dataset.light = resolveId(maps.light);
+    el.src = srcOf(el.dataset[type]);
     el.width = el.height = size;
     el.alt = "";
     el.draggable = false;
@@ -75,13 +83,21 @@ export async function activate(ctx) {
     return el;
   }
 
+  ctx.theme.onChange((th) => {
+    if (th.type === type) return;
+    type = th.type;
+    for (const el of document.querySelectorAll("img.file-icon")) {
+      if (el.dataset.dark !== el.dataset.light) el.src = srcOf(el.dataset[type]);
+    }
+  });
+
   ctx.services.provide("icons", {
     create,
     has: (name) => name in nodes,
     names: () => Object.keys(nodes),
     /** Colored icon for a file name or path: icons.file("src/main.rs", { size, className }) -> <img> */
-    file: (path, opts) => img(fileIconId(path), opts),
+    file: (path, opts) => img((m) => fileIconId(path, m), opts),
     /** Colored folder icon: icons.folder("node_modules", { open, root, size, className }) -> <img> */
-    folder: (path, opts) => img(folderIconId(path, opts), opts),
+    folder: (path, opts) => img((m) => folderIconId(path, opts, m), opts),
   });
 }

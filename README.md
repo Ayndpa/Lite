@@ -61,7 +61,8 @@ plugins/
   lang-json/        JSON                     lang-css/   CSS       lang-html/    HTML
   lang-markdown/    Markdown（围栏代码块用其他已安装的语言插件高亮）
   keyboard-shortcuts/ 快捷键编辑器（Ctrl+,）：改绑/移除/重置，标出被其他程序占用和内部冲突的快捷键
-  state.json        已禁用插件 + 最近项目（自动生成，删掉即重置）
+  theme-editor/     自定义颜色主题：编辑器标签里逐项改颜色（取色器或任意 CSS 值）、实时预览、保存、导出/导入 JSON
+  state.json        已禁用插件、最近项目、语言、颜色主题和自定义主题（自动生成，删掉即重置）
 ```
 
 ## 工作区（项目）
@@ -85,6 +86,15 @@ plugins/
 - 匹配按物理按键（`e.code`），所以 `Ctrl+Shift+,` 不会变成 `<`。
 - Windows 上会检测快捷键是否被其他程序注册成了全局热键（这种按键根本到不了窗口）。只能检测 `RegisterHotKey` 方式注册的，用底层键盘钩子的程序检测不到。
 - 默认值避开了 `Ctrl+Alt+字母`：在很多欧洲键盘布局里 Ctrl+Alt 等于 AltGr，用来输入字符。
+
+## 颜色主题
+
+- 内置「深色」「浅色」（`ui/themes/*.json`），另有「自动」跟随系统深浅色；默认深色。从 About（点 Logo）→「更改主题…」或命令「首选项: 颜色主题」打开选择框，上下键实时预览，选中立即生效，不重新加载，其他窗口同步切换。
+- 主题是 `{ id, name, type: "dark" | "light", colors: { token: CSS 值 } }`。每个 token 变成 `:root` 上的 CSS 变量：`fg.muted` → `--lite-fg-muted`。可以只写一部分 token，没写的取自同 `type` 的内置主题。完整的 token 列表见 `ui/themes/dark.json`。
+- 插件样式里只用变量（`color: var(--lite-fg-muted)`），不写死颜色，切主题自动跟上。需要真实颜色值的代码（例如 xterm 画布）用 `ctx.theme.current().colors` 和 `ctx.theme.onChange(fn)`。
+- 插件可以自带主题：manifest 里写 `"themes": ["themes/x.json"]`，内核在插件代码运行前读取。
+- 自定义：主题编辑器插件（命令「首选项: 自定义颜色主题」，或主题选择框里的「自定义…」），保存到 `state.json` 的 `customThemes`。
+- 文件图标会跟着主题深浅切换 Material Icon Theme 的浅色版本。
 
 ## 多语言（en / zh-CN）
 
@@ -171,6 +181,8 @@ export async function activate(ctx) {
 | `titlebar.addButton({ id, icon, title, command })` | 标题栏右侧按钮 |
 | `window.minimize/toggleMaximize/close/startDragging` | 需要 `"window"` 权限 |
 | `plugins.list/setEnabled/reload` | 需要 `"plugins"` 权限 |
+| `theme.current/color/cssVar/onChange/list/get/defaults/preference` | 当前颜色主题和所有主题；`onChange` 在切换或预览时回调 |
+| `theme.pick/set/preview/saveCustom/removeCustom` | 需要 `"theme"` 权限 |
 | `platform` | `"windows"` / `"macos"` / `"linux"` |
 
 图标名见 <https://lucide.dev/icons>。注意 `lucide-icon-nodes.json` 只有规范名，不含旧别名（例如 `history` 要写成 `rotate-ccw-clock`）。

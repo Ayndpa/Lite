@@ -2,13 +2,15 @@
 // folder, in the workbench's bottom panel. xterm.js (term.js) is loaded on first use only.
 import { showMenu } from "@lite/context-menu"; // bundled copy: this plugin owns its menus
 
-// VS Code's dark terminal palette.
-const THEME = {
-  background: "#181a1f", foreground: "#cccccc", cursor: "#aeafad", selectionBackground: "#264f78",
-  black: "#000000", red: "#cd3131", green: "#0dbc79", yellow: "#e5e510", blue: "#2472c8", magenta: "#bc3fbc",
-  cyan: "#11a8cd", white: "#e5e5e5", brightBlack: "#666666", brightRed: "#f14c4c", brightGreen: "#23d18b",
-  brightYellow: "#f5f543", brightBlue: "#3b8eea", brightMagenta: "#d670d6", brightCyan: "#29b8db", brightWhite: "#e5e5e5",
-};
+// xterm draws on a canvas, so it needs real colors: the color theme's terminal.* tokens.
+const XTERM_KEYS = [
+  "background", "foreground", "cursor", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+  "brightBlack", "brightRed", "brightGreen", "brightYellow", "brightBlue", "brightMagenta", "brightCyan", "brightWhite",
+];
+const xtermTheme = ({ colors }) => ({
+  ...Object.fromEntries(XTERM_KEYS.map((k) => [k, colors[`terminal.${k}`]])),
+  selectionBackground: colors["terminal.selection"],
+});
 
 export async function activate(ctx) {
   const wb = await ctx.services.get("workbench");
@@ -19,6 +21,7 @@ export async function activate(ctx) {
   const terms = []; // { id (pty), name, term, fit, el }
   let active = null;
   let tabsEl, bodyEl;
+  ctx.theme.onChange((theme) => { for (const { term } of terms) term.options.theme = xtermTheme(theme); });
 
   // ---------- key routing (like VS Code: the shell gets Ctrl+letter, the app gets the rest it binds) ----------
 
@@ -52,7 +55,7 @@ export async function activate(ctx) {
       fontSize: 13,
       cursorBlink: true,
       scrollback: 1000, // bounded memory per terminal
-      theme: THEME,
+      theme: xtermTheme(ctx.theme.current()),
     });
     term.open(el);
     const entry = { id: null, name: "…", term, fit, el };

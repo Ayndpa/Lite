@@ -7,7 +7,7 @@
 .ed-tabs {
   display: flex;
   overflow-x: auto;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--lite-tabbar-bg);
   min-height: 32px;
 }
 .ed-tab {
@@ -15,12 +15,12 @@
   align-items: center;
   gap: 6px;
   padding: 0 6px 0 12px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  color: #999;
+  border-right: 1px solid var(--lite-border-subtle);
+  color: var(--lite-fg-muted);
   cursor: pointer;
   white-space: nowrap;
 }
-.ed-tab.active { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.ed-tab.active { background: var(--lite-tab-active); color: var(--lite-fg-strong); }
 .ed-tab button {
   border: 0;
   background: none;
@@ -34,7 +34,7 @@
   align-items: center;
   justify-content: center;
 }
-.ed-tab button:hover { background: rgba(255, 255, 255, 0.1); }
+.ed-tab button:hover { background: var(--lite-active); }
 .ed-tab .ed-dirty { display: none; fill: currentColor; }
 .ed-tab.dirty .ed-close { display: none; }
 .ed-tab.dirty .ed-dirty { display: block; }
@@ -47,12 +47,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #555;
+  color: var(--lite-fg-disabled);
   font-size: 16px;
 }
 /* Non-text tabs (e.g. plugin details) */
 .ed-page-host { flex: 1; min-height: 0; overflow: auto; }
-.ed-tab-icon { color: #8ab4f8; margin-right: -2px; }
+.ed-tab-icon { color: var(--lite-link); margin-right: -2px; }
 
 .ed-host[hidden], .ed-page-host[hidden], .ed-empty[hidden] { display: none; }
 
@@ -69,7 +69,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #888;
+  color: var(--lite-fg-dim);
   opacity: 0;
   animation: ed-fade-in 0.2s ease-out 150ms forwards;
 }

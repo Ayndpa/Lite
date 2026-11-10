@@ -2,7 +2,8 @@
 // lanes and drawn one small SVG per row.
 
 const SVG = "http://www.w3.org/2000/svg";
-export const LANE_COLORS = ["#4d8bf5", "#e2c08d", "#73c991", "#c586c0", "#f28b82", "#4ec9b0", "#ce9178", "#9cdcfe"];
+// Theme colors (CSS variables, so lines follow a theme switch); set as style, since SVG attributes can't take var().
+export const LANE_COLORS = ["accent", "git-modified", "success", "syntax-control", "danger-fg", "syntax-type", "syntax-string", "syntax-variable"].map((c) => `var(--lite-${c})`);
 const LANE_W = 12;
 const ROW_H = 22;
 
@@ -70,7 +71,8 @@ function line(svg, x1, y1, x2, y2, stroke) {
   const el = document.createElementNS(SVG, "path");
   // Diagonal joins/forks as a soft curve, like VS Code.
   const d = x1 === x2 ? `M${x1} ${y1}V${y2}` : `M${x1} ${y1}C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}`;
-  for (const [k, v] of Object.entries({ d, stroke, fill: "none", "stroke-width": 1.6 })) el.setAttribute(k, v);
+  for (const [k, v] of Object.entries({ d, fill: "none", "stroke-width": 1.6 })) el.setAttribute(k, v);
+  el.style.stroke = stroke;
   svg.append(el);
 }
 
@@ -90,8 +92,8 @@ export function rowSvg(c, width, isHead) {
   const dot = document.createElementNS(SVG, "circle");
   const merge = c.parents.length > 1;
   for (const [k, v] of Object.entries({ cx: x(c.lane), cy: mid, r: isHead ? 4.5 : merge ? 3 : 3.5 })) dot.setAttribute(k, v);
-  dot.setAttribute("fill", isHead || merge ? "#1e1f24" : color(c.lane));
-  dot.setAttribute("stroke", color(c.lane));
+  dot.style.fill = isHead || merge ? "var(--lite-git-graph-hollow)" : color(c.lane);
+  dot.style.stroke = color(c.lane);
   dot.setAttribute("stroke-width", isHead ? 2 : 1.6);
   svg.append(dot);
   return svg;

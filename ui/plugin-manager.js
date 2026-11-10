@@ -19,7 +19,7 @@ function closure(start, next) {
   return out;
 }
 
-const PERMISSIONS = ["fs", "workspace", "window", "plugins", "keybindings", "terminal", "git"];
+const PERMISSIONS = ["fs", "workspace", "window", "plugins", "keybindings", "terminal", "git", "theme"];
 // Survives the window reload that enabling/disabling triggers, so the details page comes back.
 const REOPEN_KEY = "lite.pluginManager.reopen";
 

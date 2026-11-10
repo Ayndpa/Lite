@@ -8,7 +8,10 @@ import { readLog, layout, rowSvg, passSvg, commitFiles } from "./lib/graph.js";
 import { confirm, prompt, pick, h } from "./lib/ui.js";
 
 const POLL_MS = 5000;
-const STATUS_COLORS = { M: "#e2c08d", A: "#73c991", U: "#73c991", D: "#c74e39", R: "#73c991", C: "#73c991", T: "#e2c08d", "!": "#e4676b" };
+const STATUS_COLORS = Object.fromEntries(
+  Object.entries({ M: "modified", A: "added", U: "added", D: "deleted", R: "added", C: "added", T: "modified", "!": "conflict" })
+    .map(([k, c]) => [k, `var(--lite-git-${c})`]),
+);
 
 export async function activate(ctx) {
   const wb = await ctx.services.get("workbench");

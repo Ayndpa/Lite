@@ -87,5 +87,18 @@
   "window.maximize": "Maximize",
   "window.restore": "Restore",
   "window.close": "Close",
-  "language.saveFailed": "Could not save the language setting: {error}"
+  "language.saveFailed": "Could not save the language setting: {error}",
+  "command.theme": "Preferences: Color Theme",
+  "theme.title": "Color Theme",
+  "theme.hint": "Use ↑ ↓ to preview. Applies immediately, no reload.",
+  "theme.auto": "Auto (follow the system: dark or light)",
+  "theme.customize": "Customize…",
+  "theme.source.custom": "Custom",
+  "theme.source.plugin": "Plugin",
+  "theme.name.dark": "Dark",
+  "theme.name.light": "Light",
+  "theme.saveFailed": "Cannot save the theme: {error}",
+  "pm.perm.theme": "Change the color theme and save custom themes",
+  "about.theme": "Theme",
+  "about.changeTheme": "Change Theme…"
 }

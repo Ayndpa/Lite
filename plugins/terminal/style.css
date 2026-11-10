@@ -12,8 +12,8 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #ccc;
-  border-bottom: 1px solid #4d8bf5;
+  color: var(--lite-fg);
+  border-bottom: 1px solid var(--lite-accent);
   padding: 7px 0 6px;
 }
 .term-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; }
@@ -25,14 +25,14 @@
   border: 0;
   border-radius: 4px;
   background: none;
-  color: #999;
+  color: var(--lite-fg-muted);
   font: inherit;
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
 }
-.term-tab:hover { background: rgba(255, 255, 255, 0.06); color: #ddd; }
-.term-tab.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.term-tab:hover { background: var(--lite-hover); color: var(--lite-fg); }
+.term-tab.active { background: var(--lite-active); color: var(--lite-fg-strong); }
 .term-actions { display: flex; gap: 2px; }
 .term-btn {
   width: 26px;
@@ -43,11 +43,11 @@
   border: 0;
   border-radius: 4px;
   background: none;
-  color: #aaa;
+  color: var(--lite-fg-muted);
   cursor: pointer;
 }
-.term-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.term-btn:hover { background: var(--lite-active); color: var(--lite-fg-strong); }
 
-.term-body { flex: 1; min-height: 0; position: relative; background: #181a1f; }
+.term-body { flex: 1; min-height: 0; position: relative; background: var(--lite-terminal-background); }
 .term-view { position: absolute; inset: 4px 0 0 12px; }
 .term-view[hidden] { display: none; }

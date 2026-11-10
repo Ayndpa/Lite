@@ -10,10 +10,10 @@
 .cp-backdrop[hidden] { display: none; }
 .cp {
   width: min(560px, 90vw);
-  background: #252830;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--lite-surface);
+  border: 1px solid var(--lite-border);
   border-radius: 8px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px var(--lite-shadow);
   overflow: hidden;
 }
 .cp-input {
@@ -21,9 +21,9 @@
   box-sizing: border-box;
   padding: 10px 12px;
   border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--lite-border-subtle);
   background: transparent;
-  color: #eee;
+  color: var(--lite-fg-strong);
   font: inherit;
   font-size: 14px;
   outline: none;
@@ -35,10 +35,10 @@
   padding: 6px 12px;
   cursor: pointer;
 }
-.cp-list li small { color: #777; }
-.cp-list li.selected { background: #2d5aa0; color: #fff; }
-.cp-list li.selected small { color: #cfe0ff; }
-.cp-list li.empty { color: #777; cursor: default; }
+.cp-list li small { color: var(--lite-fg-dim); }
+.cp-list li.selected { background: var(--lite-primary); color: var(--lite-primary-fg); }
+.cp-list li.selected small { color: var(--lite-primary-fg-dim); }
+.cp-list li.empty { color: var(--lite-fg-dim); cursor: default; }
 .cp-search {
   width: 100%;
   height: 24px;
@@ -46,12 +46,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--lite-border);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #888;
+  background: var(--lite-fill-subtle);
+  color: var(--lite-fg-dim);
   font: inherit;
   cursor: pointer;
 }
-.cp-search:hover { background: rgba(255, 255, 255, 0.08); color: #bbb; }
-.cp-search kbd { font: 11px Consolas, monospace; color: #666; }
+.cp-search:hover { background: var(--lite-active); color: var(--lite-fg-muted); }
+.cp-search kbd { font: 11px Consolas, monospace; color: var(--lite-fg-disabled); }

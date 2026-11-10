@@ -1,0 +1,54 @@
+.te { max-width: 880px; margin: 0 auto; padding: 22px 28px 40px; color: var(--lite-fg); }
+.te-head h2 { margin: 0 0 12px; font-size: 18px; font-weight: 600; color: var(--lite-fg-strong); }
+.te-row { display: flex; gap: 8px; }
+.te-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+
+.te-input {
+  box-sizing: border-box; height: 28px; padding: 0 8px; border: 1px solid var(--lite-control-border); border-radius: 4px;
+  background: var(--lite-input-bg); color: var(--lite-fg); font: inherit; outline: none;
+}
+.te-input:focus { border-color: var(--lite-accent); }
+.te-input.invalid { border-color: var(--lite-error); }
+.te-name { flex: 1; min-width: 0; }
+select.te-input { padding: 0 4px; }
+select.te-input option { background: var(--lite-surface); color: var(--lite-fg); }
+
+.te-btn {
+  padding: 5px 14px; border: 1px solid var(--lite-control-border); border-radius: 4px; background: var(--lite-control-bg);
+  color: var(--lite-fg); font: inherit; cursor: pointer;
+}
+.te-btn:hover:not(:disabled) { background: var(--lite-control-hover); }
+.te-btn:disabled { opacity: 0.5; cursor: default; }
+.te-btn:focus-visible { outline: 2px solid var(--lite-accent); outline-offset: 1px; }
+.te-btn.primary { background: var(--lite-primary); border-color: var(--lite-primary); color: var(--lite-primary-fg); }
+.te-btn.primary:hover:not(:disabled) { background: var(--lite-primary-hover); }
+.te-btn.danger { margin-left: auto; color: var(--lite-danger-fg); }
+
+.te-panel { margin-bottom: 14px; }
+.te-panel[hidden] { display: none; }
+.te-json { width: 100%; height: 180px; padding: 8px; resize: vertical; font: 12px/1.5 Consolas, monospace; }
+.te-panel-bar { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.te-msg { font-size: 12px; color: var(--lite-fg-dim); }
+
+.te-filter { width: 100%; margin-bottom: 6px; }
+.te-group { margin: 18px 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lite-fg-muted); }
+.te-group[hidden] { display: none; }
+.te-token { display: grid; grid-template-columns: 28px minmax(160px, 1fr) minmax(200px, 1.4fr) 24px; align-items: center; gap: 10px; padding: 3px 6px; border-radius: 4px; }
+.te-token[hidden] { display: none; }
+.te-token:hover { background: var(--lite-hover); }
+.te-token-name { font: 12px Consolas, monospace; color: var(--lite-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.te-token.changed .te-token-name { color: var(--lite-fg-strong); }
+.te-token.changed .te-token-name::after { content: " ●"; color: var(--lite-accent); }
+.te-value { height: 24px; font: 12px Consolas, monospace; }
+
+/* Checkerboard under the color so transparency shows; the native picker sits invisible on top. */
+.te-swatch {
+  position: relative; width: 24px; height: 20px; border-radius: 4px; border: 1px solid var(--lite-control-border); overflow: hidden; cursor: pointer;
+  background: repeating-conic-gradient(#999 0 25%, #ddd 0 50%) 0 0 / 8px 8px;
+}
+.te-swatch::after { content: ""; position: absolute; inset: 0; background: var(--te-color); }
+.te-swatch input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+.te-swatch input:disabled { cursor: default; }
+.te-reset { width: 24px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--lite-fg-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.te-reset:hover { background: var(--lite-active); color: var(--lite-fg-strong); }
+.te-reset[hidden] { visibility: hidden; display: flex; }

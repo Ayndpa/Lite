@@ -128,7 +128,7 @@ export function mountOverview(el, env) {
     const pts = data.map((d, i) => `${x(i)},${y(d.count)}`);
     const defs = svg("defs");
     const grad = svg("linearGradient", { id: "git-area", x1: 0, y1: 0, x2: 0, y2: 1 });
-    grad.append(svg("stop", { offset: "0", "stop-color": "#4d8bf5", "stop-opacity": "0.45" }), svg("stop", { offset: "1", "stop-color": "#4d8bf5", "stop-opacity": "0" }));
+    grad.append(svg("stop", { offset: "0", class: "git-chart-stop", "stop-opacity": "0.45" }), svg("stop", { offset: "1", class: "git-chart-stop", "stop-opacity": "0" }));
     defs.append(grad);
     const area = svg("polygon", { points: `${x(0)},${y(0)} ${pts.join(" ")} ${x(data.length - 1)},${y(0)}`, fill: "url(#git-area)" });
     const line = svg("polyline", { points: pts.join(" "), class: "git-chart-line" });

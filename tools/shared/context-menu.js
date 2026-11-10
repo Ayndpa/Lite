@@ -6,21 +6,21 @@ const STYLE_ID = "lite-context-menu-style";
 const CSS = `
 .lite-menu {
   position: fixed; z-index: 3000; min-width: 220px; max-width: 360px; padding: 4px;
-  background: #252830; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); user-select: none;
+  background: var(--lite-surface); border: 1px solid var(--lite-border); border-radius: 6px;
+  box-shadow: 0 10px 30px var(--lite-shadow); user-select: none;
 }
 .lite-menu-item {
   display: grid; grid-template-columns: 1fr auto; gap: 24px; width: 100%; padding: 5px 10px;
-  border: 0; border-radius: 4px; background: none; color: #ddd; font: inherit; text-align: left; cursor: pointer;
+  border: 0; border-radius: 4px; background: none; color: var(--lite-fg); font: inherit; text-align: left; cursor: pointer;
 }
-.lite-menu-item:focus { outline: none; background: #2d5aa0; color: #fff; }
-.lite-menu-item.danger { color: #f28b82; }
-.lite-menu-item.danger:focus { background: #b3261e; color: #fff; }
-.lite-menu-item:disabled { color: #666; cursor: default; }
-.lite-menu-keys { color: #888; font-size: 12px; }
-.lite-menu-item:focus .lite-menu-keys { color: #cfe0ff; }
+.lite-menu-item:focus { outline: none; background: var(--lite-primary); color: var(--lite-primary-fg); }
+.lite-menu-item.danger { color: var(--lite-danger-fg); }
+.lite-menu-item.danger:focus { background: var(--lite-danger); color: var(--lite-primary-fg); }
+.lite-menu-item:disabled { color: var(--lite-fg-disabled); cursor: default; }
+.lite-menu-keys { color: var(--lite-fg-dim); font-size: 12px; }
+.lite-menu-item:focus .lite-menu-keys { color: var(--lite-primary-fg-dim); }
 .lite-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lite-menu-sep { height: 1px; margin: 4px 6px; background: rgba(255, 255, 255, 0.08); }
+.lite-menu-sep { height: 1px; margin: 4px 6px; background: var(--lite-active); }
 `;
 
 /** True while focus sits in a menu — lets e.g. an inline input ignore the blur a menu causes. */

@@ -67,8 +67,9 @@ for (const id of readdirSync(pluginsDir)) {
 }
 
 // ---- 3. file icon theme (owned by the icons plugin) ----
-// Material Icon Theme (MIT): the VS Code manifest's dark mappings become plugins/icons/file-icons.json
-// and only the SVGs those mappings use are copied to plugins/icons/file-icons/ (loaded per icon via <img>).
+// Material Icon Theme (MIT): the VS Code manifest's mappings (plus the overrides for light themes) become
+// plugins/icons/file-icons.json and only the SVGs they use are copied to plugins/icons/file-icons/
+// (loaded per icon via <img>).
 {
   const { generateManifest } = await import("material-icon-theme");
   const theme = generateManifest();
@@ -87,6 +88,11 @@ for (const id of readdirSync(pluginsDir)) {
     rootFolder: theme.rootFolder, rootFolderExpanded: theme.rootFolderExpanded,
     fileNames: pick(theme.fileNames), fileExtensions: pick(theme.fileExtensions),
     folderNames: pick(theme.folderNames), folderNamesExpanded: pick(theme.folderNamesExpanded),
+    // Light themes: these entries replace the ones above (dark-on-light versions of some icons).
+    light: {
+      fileNames: pick(theme.light.fileNames), fileExtensions: pick(theme.light.fileExtensions),
+      folderNames: pick(theme.light.folderNames), folderNamesExpanded: pick(theme.light.folderNamesExpanded),
+    },
     icons: {}, // definition id -> svg file name (several ids can share one file)
   };
   for (const id of [theme.file, theme.folder, theme.folderExpanded, theme.rootFolder, theme.rootFolderExpanded]) used.add(id);

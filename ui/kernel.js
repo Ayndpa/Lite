@@ -1,11 +1,13 @@
 // Lite UI kernel.
 // Provides: workspace (one folder per window), plugin loading (dependency order), commands,
 // keybindings, events, slots (UI mount points), services (plugin-to-plugin APIs) and
-// permission-gated host access, localization. Its own UI: the title bar (project switcher, window
-// controls — titlebar.js; plugins add buttons and the "titlebar.center" slot) and the background: a
-// logo watermark (with hints contributed by plugins), the About dialog and the language picker — see shell.js.
+// permission-gated host access, localization, color themes (theme.js). Its own UI: the title bar (project
+// switcher, window controls — titlebar.js; plugins add buttons and the "titlebar.center" slot) and the
+// background: a logo watermark (with hints contributed by plugins), the About dialog and the language and
+// theme pickers — see shell.js.
 
-import { createLogo, formatCombo, mountWatermark, showAbout, showLanguagePicker } from "./shell.js";
+import { createLogo, formatCombo, mountWatermark, showAbout, showLanguagePicker, showThemePicker } from "./shell.js";
+import { AUTO, BUILTIN_THEMES, createThemes, cssVar } from "./theme.js";
 import { mountTitlebar } from "./titlebar.js";
 import { createPluginManager } from "./plugin-manager.js";
 import { LOCALES, loadMessages, localeName, resolvePlaceholder, resolveLocale, systemLocale, translator } from "./i18n.js";
@@ -223,8 +225,10 @@ function openAbout() {
       [t("about.plugins"), t("about.pluginsValue", { active: all.filter((p) => p.status === "active").length, total: all.length })],
       [t("about.workspace"), workspace.root ?? t("about.workspaceNone")],
       [t("about.language"), localeName(locale)],
+      [t("about.theme"), localizeTheme(themes.current()).name],
     ],
     onChangeLanguage: openLanguagePicker,
+    onChangeTheme: openThemePicker,
   });
 }
 
@@ -251,10 +255,42 @@ function openLanguagePicker() {
   });
 }
 
+// ---------- color themes (ui/theme.js; switching is live, no reload) ----------
+
+const themes = createThemes({
+  readState: () => invoke("read_state"),
+  writeState: (state) => invoke("write_state", { state }),
+  // Other windows re-read state.json; the sender already shows the change.
+  broadcast: () => window.__TAURI__.event.emit("lite://themes-changed", { from: appWindow.label }),
+});
+window.__TAURI__.event.listen("lite://themes-changed", ({ payload }) => payload?.from !== appWindow.label && themes.reload());
+
+/** Built-in themes get their name from the kernel's language pack. */
+const localizeTheme = (th) => th && (BUILTIN_THEMES.includes(th.id) ? { ...th, name: t(`theme.name.${th.id}`) } : th);
+
+function openThemePicker() {
+  const options = [{ id: AUTO, name: t("theme.auto") }, ...themes.list().map(localizeTheme)];
+  showThemePicker({
+    t,
+    options,
+    current: themes.preference(),
+    preview: (id) => themes.preview(id === AUTO ? null : id),
+    onPick: (id) =>
+      themes.set(id).catch((e) => {
+        console.error("[lite] cannot save the theme", e);
+        alert(t("theme.saveFailed", { error: String(e) }));
+      }),
+    onCancel: () => themes.preview(null),
+    // Shown only when a plugin offers a theme editor.
+    onCustomize: commands.has("theme.customize") ? () => executeCommand("theme.customize") : null,
+  });
+}
+
 // Kernel-owned commands, so palettes, title bars and the watermark logo can all reach them.
 // Titles are filled in once the kernel's messages are loaded (see boot).
 commands.set("app.about", { id: "app.about", title: "", titleEn: "", run: openAbout, plugin: "kernel" });
 commands.set("app.language", { id: "app.language", title: "", titleEn: "", run: openLanguagePicker, plugin: "kernel" });
+commands.set("app.theme", { id: "app.theme", title: "", titleEn: "", run: openThemePicker, plugin: "kernel" });
 
 /** Shown under the logo; only commands that exist (and their current keybinding) are listed. */
 function renderWatermarkHints() {
@@ -476,6 +512,33 @@ function createContext(manifest) {
       setEnabled: (ids, enabled) => (need("plugins"), setPluginsEnabled(ids, enabled)),
       reload: () => (need("plugins"), location.reload()),
     },
+    /**
+     * Color theme. Stylesheets just use the CSS variables (var(--lite-fg-muted)) and follow switches live;
+     * code that needs real values (canvas, xterm) reads current().colors and listens with onChange.
+     */
+    theme: {
+      /** { id, name, type: "dark" | "light", colors: { token: value } } (complete) */
+      current: () => localizeTheme(themes.current()),
+      /** "token" -> its current value */
+      color: (token) => themes.current().colors[token],
+      /** "token" -> "--lite-token" (for style.setProperty / var()) */
+      cssVar,
+      /** fn(theme) after every switch or preview; returns an unsubscribe function. */
+      onChange: (fn) => themes.onChange((th) => fn(localizeTheme(th))),
+      /** [{ id, name, type, source: "builtin" | "plugin" | "custom", plugin? }] */
+      list: () => themes.list().map(localizeTheme),
+      /** The chosen theme id, or "auto" (follow the system). */
+      preference: () => themes.preference(),
+      get: (themeId) => localizeTheme(themes.get(themeId)),
+      /** Every token with the built-in value for "dark" or "light". */
+      defaults: (type) => themes.defaults(type),
+      pick: () => (need("theme"), openThemePicker()),
+      set: (themeId) => (need("theme"), themes.set(themeId)),
+      preview: (theme) => (need("theme"), themes.preview(theme)),
+      /** { id?, name, type, colors } -> saved id ("custom.…") */
+      saveCustom: (theme) => (need("theme"), themes.saveCustom(theme)),
+      removeCustom: (themeId) => (need("theme"), themes.removeCustom(themeId)),
+    },
   };
 }
 
@@ -596,6 +659,21 @@ async function localizeManifests(manifests) {
   );
 }
 
+/** manifest "themes": ["themes/x.json", …] — plain data, read before any plugin code runs. */
+async function loadPluginThemes(order) {
+  await Promise.all(
+    order.flatMap((m) =>
+      (m.themes ?? []).map(async (file) => {
+        try {
+          themes.contribute(m.id, JSON.parse(await invoke("read_plugin_file", { dir: m.dir, file })));
+        } catch (e) {
+          console.error(`[lite] theme ${m.id}/${file} failed`, e);
+        }
+      }),
+    ),
+  );
+}
+
 async function boot() {
   // The webview's own menu (Back / Reload / Inspect) never shows (also disabled host-side on Windows).
   // Each plugin shows its own menus for its own UI; the kernel provides none.
@@ -609,11 +687,15 @@ async function boot() {
   );
   t = translator(kernelMessages.messages);
   tEn = translator(kernelMessages.english);
+  await themes.init(
+    await Promise.all(BUILTIN_THEMES.map((id) => fetch(`themes/${id}.json`).then((r) => r.json()))),
+  );
 
   const tauriApp = window.__TAURI__.app;
   [appInfo.name, appInfo.version, appInfo.tauri] = await Promise.all([tauriApp.getName(), tauriApp.getVersion(), tauriApp.getTauriVersion()]);
   Object.assign(commands.get("app.about"), { title: t("command.about", appInfo), titleEn: tEn("command.about", appInfo) });
   Object.assign(commands.get("app.language"), { title: t("command.language"), titleEn: tEn("command.language") });
+  Object.assign(commands.get("app.theme"), { title: t("command.theme"), titleEn: tEn("command.theme") });
   watermark = mountWatermark({ appName: appInfo.name, logoTitle: t("about.tooltip", appInfo), onLogoClick: openAbout });
   setupPluginManager();
 
@@ -642,6 +724,7 @@ async function boot() {
   userBindings = new Map(Object.entries(state.keybindings ?? {}).filter(([, v]) => Array.isArray(v)));
   const order = resolveOrder(manifests, new Set(state.disabled ?? []));
   installImportMap(order);
+  await loadPluginThemes(order);
 
   for (const m of order) {
     try {

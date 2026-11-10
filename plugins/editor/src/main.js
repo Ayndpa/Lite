@@ -29,58 +29,58 @@ const CM_PHRASES = [
   "Unfold line", "Selection deleted", "Control character", "Completions", "current match", "on line",
 ];
 
-/** VS Code "Dark+" palette. */
-const darkPlus = HighlightStyle.define([
-  { tag: [t.keyword, t.modifier, t.operatorKeyword, t.bool, t.null, t.atom, t.self], color: "#569cd6" },
-  { tag: [t.controlKeyword, t.moduleKeyword], color: "#c586c0" },
-  { tag: [t.name, t.variableName, t.propertyName, t.attributeName, t.definition(t.name)], color: "#9cdcfe" },
-  { tag: [t.function(t.variableName), t.function(t.propertyName), t.function(t.definition(t.variableName)), t.macroName, t.labelName], color: "#dcdcaa" },
-  { tag: [t.typeName, t.className, t.namespace, t.annotation, t.definition(t.typeName)], color: "#4ec9b0" },
-  { tag: [t.constant(t.name), t.standard(t.name), t.color], color: "#4fc1ff" },
-  { tag: [t.number, t.integer, t.float], color: "#b5cea8" },
-  { tag: [t.string, t.attributeValue, t.character, t.docString], color: "#ce9178" },
-  { tag: [t.regexp, t.escape, t.special(t.string), t.url], color: "#d16969" },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "#6a9955" },
-  { tag: [t.meta, t.processingInstruction], color: "#c586c0" },
-  { tag: [t.tagName, t.angleBracket], color: "#569cd6" },
-  { tag: [t.operator, t.punctuation, t.separator, t.bracket], color: "#d4d4d4" },
-  { tag: t.heading, color: "#569cd6", fontWeight: "bold" },
+// Colors are the color theme's CSS variables (syntax.*, editor.*), so a theme switch needs no reconfiguring.
+const c = (token) => `var(--lite-${token.replace(/./g, "-")})`;
+
+/** Token classes in VS Code's Dark+ / Light+ grouping. */
+const highlight = HighlightStyle.define([
+  { tag: [t.keyword, t.modifier, t.operatorKeyword, t.bool, t.null, t.atom, t.self], color: c("syntax.keyword") },
+  { tag: [t.controlKeyword, t.moduleKeyword], color: c("syntax.control") },
+  { tag: [t.name, t.variableName, t.propertyName, t.attributeName, t.definition(t.name)], color: c("syntax.variable") },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.function(t.definition(t.variableName)), t.macroName, t.labelName], color: c("syntax.function") },
+  { tag: [t.typeName, t.className, t.namespace, t.annotation, t.definition(t.typeName)], color: c("syntax.type") },
+  { tag: [t.constant(t.name), t.standard(t.name), t.color], color: c("syntax.constant") },
+  { tag: [t.number, t.integer, t.float], color: c("syntax.number") },
+  { tag: [t.string, t.attributeValue, t.character, t.docString], color: c("syntax.string") },
+  { tag: [t.regexp, t.escape, t.special(t.string), t.url], color: c("syntax.regexp") },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: c("syntax.comment") },
+  { tag: [t.meta, t.processingInstruction], color: c("syntax.control") },
+  { tag: [t.tagName, t.angleBracket], color: c("syntax.tag") },
+  { tag: [t.operator, t.punctuation, t.separator, t.bracket], color: c("syntax.operator") },
+  { tag: t.heading, color: c("syntax.keyword"), fontWeight: "bold" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strong, fontWeight: "bold" },
   { tag: t.strikethrough, textDecoration: "line-through" },
-  { tag: t.link, color: "#4fc1ff", textDecoration: "underline" },
-  { tag: [t.inserted], color: "#b5cea8" },
-  { tag: [t.deleted, t.invalid], color: "#f44747" },
+  { tag: t.link, color: c("syntax.constant"), textDecoration: "underline" },
+  { tag: [t.inserted], color: c("syntax.number") },
+  { tag: [t.deleted, t.invalid], color: c("syntax.invalid") },
 ]);
 
-const theme = EditorView.theme(
-  {
-    "&": { height: "100%", backgroundColor: "transparent", color: "#d4d4d4", fontSize: "13px" },
-    "&.cm-focused": { outline: "none" },
-    ".cm-scroller": { fontFamily: 'Consolas, "Cascadia Code", "Microsoft YaHei UI", monospace', lineHeight: "1.5" },
-    ".cm-content": { caretColor: "#aeafad" },
-    ".cm-cursor, .cm-dropCursor": { borderLeftColor: "#aeafad" },
-    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-      backgroundColor: "#264f78",
-    },
-    ".cm-activeLine": { backgroundColor: "rgba(255,255,255,0.04)" },
-    ".cm-selectionMatch": { backgroundColor: "rgba(173,214,255,0.15)" },
-    "&.cm-focused .cm-matchingBracket": { backgroundColor: "rgba(255,255,255,0.12)", outline: "1px solid #888" },
-    ".cm-gutters": { backgroundColor: "transparent", color: "#6e7681", border: "none" },
-    ".cm-activeLineGutter": { backgroundColor: "transparent", color: "#c6c6c6" },
-    ".cm-foldPlaceholder": { backgroundColor: "rgba(255,255,255,0.08)", border: "none", color: "#bbb" },
-    ".cm-searchMatch": { backgroundColor: "rgba(234,92,0,0.33)" },
-    ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "rgba(81,92,106,0.9)" },
-    ".cm-panels": { backgroundColor: "#252830", color: "#ccc" },
-    ".cm-panels.cm-panels-top": { borderBottom: "1px solid rgba(255,255,255,0.08)" },
-    ".cm-panel input, .cm-panel button": { color: "#ddd" },
-    ".cm-textfield": { backgroundColor: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "3px" },
-    ".cm-button": { backgroundImage: "none", backgroundColor: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "3px" },
-    ".cm-tooltip": { backgroundColor: "#252830", border: "1px solid rgba(255,255,255,0.12)", color: "#ddd" },
-    ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "#2d5aa0", color: "#fff" },
+const theme = EditorView.theme({
+  "&": { height: "100%", backgroundColor: "transparent", color: c("editor.fg"), fontSize: "13px" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { fontFamily: 'Consolas, "Cascadia Code", "Microsoft YaHei UI", monospace', lineHeight: "1.5" },
+  ".cm-content": { caretColor: c("editor.cursor") },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: c("editor.cursor") },
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection": {
+    backgroundColor: c("editor.selection"),
   },
-  { dark: true },
-);
+  ".cm-activeLine": { backgroundColor: c("editor.activeLine") },
+  ".cm-selectionMatch": { backgroundColor: c("editor.selectionMatch") },
+  "&.cm-focused .cm-matchingBracket": { backgroundColor: c("editor.bracketMatch"), outline: `1px solid ${c("fg.dim")}` },
+  ".cm-gutters": { backgroundColor: "transparent", color: c("editor.lineNumber"), border: "none" },
+  ".cm-activeLineGutter": { backgroundColor: "transparent", color: c("editor.lineNumber.active") },
+  ".cm-foldPlaceholder": { backgroundColor: c("active"), border: "none", color: c("fg.muted") },
+  ".cm-searchMatch": { backgroundColor: c("editor.findMatch") },
+  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: c("editor.findMatch.selected") },
+  ".cm-panels": { backgroundColor: c("surface"), color: c("fg") },
+  ".cm-panels.cm-panels-top": { borderBottom: `1px solid ${c("border.subtle")}` },
+  ".cm-panel input, .cm-panel button": { color: c("fg") },
+  ".cm-textfield": { backgroundColor: c("input.bg"), border: `1px solid ${c("control.border")}`, borderRadius: "3px" },
+  ".cm-button": { backgroundImage: "none", backgroundColor: c("control.bg"), border: `1px solid ${c("control.border")}`, borderRadius: "3px" },
+  ".cm-tooltip": { backgroundColor: c("surface"), border: `1px solid ${c("border")}`, color: c("fg") },
+  ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: c("primary"), color: c("primary.fg") },
+});
 
 export async function activate(ctx) {
   const icons = await ctx.services.get("icons");
@@ -129,7 +129,7 @@ export async function activate(ctx) {
     dropCursor(), EditorState.allowMultipleSelections.of(true), indentOnInput(), bracketMatching(), closeBrackets(),
     autocompletion(), rectangularSelection(), crosshairCursor(), highlightActiveLine(), highlightSelectionMatches(),
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap, ...lintKeymap, indentWithTab]),
-    syntaxHighlighting(darkPlus, { fallback: true }),
+    syntaxHighlighting(highlight, { fallback: true }),
     theme,
     EditorState.phrases.of(phrases),
     EditorView.updateListener.of((u) => {
@@ -498,7 +498,7 @@ export async function activate(ctx) {
     openPage,
     /** Extensions for read-only viewers (e.g. a diff) that should look exactly like the editor. */
     viewerExtensions: () => [
-      lineNumbers(), highlightSpecialChars(), drawSelection(), syntaxHighlighting(darkPlus, { fallback: true }), theme,
+      lineNumbers(), highlightSpecialChars(), drawSelection(), syntaxHighlighting(highlight, { fallback: true }), theme,
       EditorState.phrases.of(phrases), EditorState.readOnly.of(true), EditorView.editable.of(false),
     ],
     /** The language support for a file name (loaded on demand), or [] for plain text. */
