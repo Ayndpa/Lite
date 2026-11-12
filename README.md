@@ -63,8 +63,30 @@ plugins/
   lang-markdown/    Markdown（围栏代码块用其他已安装的语言插件高亮）
   keyboard-shortcuts/ 快捷键编辑器（Ctrl+,）：改绑/移除/重置，标出被其他程序占用和内部冲突的快捷键
   theme-editor/     自定义颜色主题：编辑器标签里逐项改颜色（取色器或任意 CSS 值）、实时预览、保存、导出/导入 JSON
-  state.json        已禁用插件、最近项目、语言、颜色主题和自定义主题（自动生成，删掉即重置）
+installer/   安装器（Slint，自绘成 Lite 的样子，见下面「安装器」）
 ```
+
+用户状态（已禁用插件、最近项目、语言、颜色主题和自定义主题、快捷键）存在用户配置目录的 `Lite/state.json`：Windows 是 `%APPDATA%\Lite`，macOS 是 `~/Library/Application Support/Lite`，其他系统是 `$XDG_CONFIG_HOME/Lite`（默认 `~/.config/Lite`）。文件自动生成，删掉即重置；可以用环境变量 `LITE_STATE_FILE` 指到别处。以前它在 `plugins/state.json`，第一次启动会自动复制过来。
+
+`lite <文件夹>` 用指定文件夹启动第一个窗口。
+
+## 安装器
+
+`installer/` 是一个独立的 crate，生成单文件的 `lite-setup.exe`：应用和 `plugins/`（不含各插件的 `src/`）压缩后嵌在里面，安装时不联网。界面用 Slint 自绘（软件渲染，不依赖显卡），配色在构建时读 `ui/themes/*.json` 生成。目前只实现了 Windows。
+
+```bash
+cargo build --release --manifest-path src-tauri/Cargo.toml   # 先编译应用
+cargo build --release --manifest-path installer/Cargo.toml   # 得到 installer/target/release/lite-setup.exe
+```
+
+- 默认装到 `%LOCALAPPDATA%\Programs\Lite`，全部写在当前用户下，不需要管理员权限。
+- 选项：桌面快捷方式、开始菜单、文件夹右键「用 Lite 打开」、加入 PATH。
+- 没有 WebView2 运行时会下载微软的引导程序安装（Windows 11 自带）。
+- 已安装时再运行就是更新：覆盖文件，并删掉新版本不再包含的旧文件。
+- 卸载：「设置 → 应用」，或安装目录里的 `uninstall.exe --uninstall`。只删除安装时写入的文件（记在 `install-manifest.txt`），用户自己放进去的东西会留下；用户设置默认保留。
+- 静默：`lite-setup.exe /S [/D=<目录>]`，可加 `--no-desktop`、`--no-start-menu`、`--no-context-menu`、`--add-to-path`；卸载是 `uninstall.exe --uninstall /S [--delete-settings]`。退出码：0 成功，1 失败，2 Lite 正在运行，3 已安装但缺少 WebView2。
+
+Slint 的免费许可（Royalty-free）要求署名，只约束安装器这个可执行文件，不涉及 Lite 本体。
 
 ## 工作区（项目）
 

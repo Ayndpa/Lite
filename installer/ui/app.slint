@@ -1,0 +1,470 @@
+// The installer's single window, drawn in Lite's own style: frameless with its own title bar, the
+// app's colors (theme.slint is generated from ui/themes/*.json by build.rs) and the About dialog's
+// layout — logo and title, small section labels, bordered controls, buttons bottom right.
+// No images or paths: everything is rectangles and text, which the software renderer draws anywhere.
+import { AboutSlint, Palette } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+
+/** UI language: Chinese or English, set once at startup from the system language. */
+export global T {
+    in property <bool> zh;
+}
+
+/** The app's logo: three modules plus an accent one (same 64-unit grid as ui/shell.js). */
+component Logo inherits Rectangle {
+    in property <length> size: 48px;
+    width: size;
+    height: size;
+    for b in [
+        { x: 6, y: 6, s: 24, accent: false },
+        { x: 34, y: 6, s: 24, accent: false },
+        { x: 6, y: 34, s: 24, accent: false },
+        { x: 36, y: 36, s: 22, accent: true },
+    ]: Rectangle {
+        x: root.size * b.x / 64;
+        y: root.size * b.y / 64;
+        width: root.size * b.s / 64;
+        height: root.size * b.s / 64;
+        border-radius: root.size * 6 / 64;
+        background: b.accent ? Theme.accent : Theme.logo;
+    }
+}
+
+component Btn inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 32px;
+    min-width: 88px;
+    horizontal-stretch: 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: primary ? Theme.primary : Theme.control-border;
+    background: primary ? (touch.has-hover ? Theme.primary-hover : Theme.primary) : (touch.has-hover ? Theme.control-hover : Theme.control-bg);
+    opacity: enabled ? 1 : 0.5;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        Text {
+            text: root.text;
+            color: root.primary ? Theme.primary-fg : Theme.fg;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Check inherits Rectangle {
+    in-out property <bool> checked;
+    in property <string> text;
+    height: 26px;
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: root.checked ? Theme.accent : (touch.has-hover ? Theme.fg-dim : Theme.control-border);
+                background: Theme.input-bg;
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 2px;
+                    background: root.checked ? Theme.accent : transparent;
+                }
+            }
+        }
+        Text {
+            text: root.text;
+            color: Theme.fg;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            root.checked = !root.checked;
+        }
+    }
+}
+
+/**
+ * Attribution required by Slint's royalty-free license (the installer only; Lite itself doesn't use
+ * Slint). A cell of fixed size — the button row lays it out like a button — showing only the logo of
+ * the AboutSlint widget. That widget is a column with 12px padding: the logo box (48px tall, the logo
+ * fitted inside), then a version line. Here it gets exactly the logo box's width plus its padding, and
+ * is shifted so the logo box sits centered in the cell; the rest is clipped.
+ */
+component SlintBadge inherits Rectangle {
+    callback clicked;
+    width: 72px;
+    height: 32px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    clip: true;
+    AboutSlint {
+        x: -12px;
+        y: -12px - (48px - parent.height) / 2;
+        width: parent.width + 24px;
+        height: parent.height;
+    }
+    // The whole cell is the link (the widget's own click area is shifted along with it).
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Section inherits Text {
+    color: Theme.fg-dim;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+}
+
+export component App inherits Window {
+    in property <string> version;
+    /** Uninstall mode: the same window with the uninstall pages. */
+    in property <bool> uninstalling;
+    /** Lite is already installed: the install button says "Upgrade". */
+    in property <bool> upgrade;
+    /** 0 = options, 1 = working, 2 = done, 3 = failed */
+    in-out property <int> page: 0;
+    in-out property <string> install-dir;
+    in-out property <bool> opt-desktop: true;
+    in-out property <bool> opt-start-menu: true;
+    in-out property <bool> opt-context-menu: true;
+    in-out property <bool> opt-path: false;
+    in-out property <bool> delete-settings: false;
+    in-out property <bool> launch-after: true;
+    in property <float> progress;
+    in property <string> status;
+    in property <string> error;
+    /** Installed, but the web runtime Lite needs is missing and could not be installed. */
+    in property <bool> runtime-missing;
+
+    /** Open a web page in the default browser. */
+    callback open-url(string);
+    callback browse();
+    callback begin();
+    /** Close button, Cancel, Finish, Escape. */
+    callback dismiss();
+    /** The title bar was dragged by (dx, dy). */
+    callback drag(length, length);
+
+    no-frame: true;
+    width: 520px;
+    height: 400px;
+    background: Theme.bg;
+    title: T.zh ? (root.uninstalling ? "卸载 Lite" : "Lite 安装") : (root.uninstalling ? "Uninstall Lite" : "Lite Setup");
+    default-font-family: T.zh ? "Microsoft YaHei UI" : "Segoe UI";
+    default-font-size: 13px;
+    forward-focus: keys; // Enter / Escape work without clicking first
+    init => {
+        // Pin the std widgets' scheme instead of following the system, so the Slint badge always
+        // draws the same variant: "light" is its dark pill with white text, which suits our dark window.
+        Palette.color-scheme = ColorScheme.light;
+    }
+
+    property <string> heading: root.page == 3 ? (root.uninstalling ? (T.zh ? "卸载失败" : "Uninstall failed") : (T.zh ? "安装失败" : "Installation failed"))
+        : root.page == 2 ? (root.uninstalling ? (T.zh ? "Lite 已卸载" : "Lite was uninstalled") : (T.zh ? "安装完成" : "Lite is installed"))
+        : root.page == 1 ? (root.uninstalling ? (T.zh ? "正在卸载…" : "Uninstalling…") : (T.zh ? "正在安装…" : "Installing…"))
+        : root.uninstalling ? (T.zh ? "卸载 Lite" : "Uninstall Lite") : (T.zh ? "安装 Lite" : "Install Lite");
+    property <string> subheading: root.uninstalling ? root.install-dir
+        : root.upgrade && root.page == 0 ? (T.zh ? "已安装，将更新到版本 " + root.version : "Already installed — will update to version " + root.version)
+        : (T.zh ? "版本 " : "Version ") + root.version;
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape && root.page != 1) {
+                root.dismiss();
+                return accept;
+            }
+            if (event.text == Key.Return) {
+                if (root.page == 0) {
+                    root.begin();
+                } else if (root.page != 1) {
+                    root.dismiss();
+                }
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalLayout {
+            // ----- title bar -----
+            Rectangle {
+                height: 36px;
+                background: Theme.titlebar;
+                TouchArea {
+                    moved => {
+                        if (self.pressed) {
+                            root.drag(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    padding-left: 10px;
+                    spacing: 8px;
+                    VerticalLayout {
+                        alignment: center;
+                        Logo {
+                            size: 16px;
+                        }
+                    }
+                    Text {
+                        text: root.title;
+                        color: Theme.fg-muted;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    Rectangle {
+                        width: 46px;
+                        background: close-touch.has-hover && root.page != 1 ? #e81123 : transparent;
+                        Text {
+                            text: "×";
+                            font-size: 20px;
+                            color: close-touch.has-hover && root.page != 1 ? white : (root.page == 1 ? Theme.fg-dim : Theme.fg);
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        close-touch := TouchArea {
+                            enabled: root.page != 1;
+                            clicked => {
+                                root.dismiss();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ----- body -----
+            VerticalLayout {
+                padding: 24px;
+                padding-top: 22px;
+                spacing: 0px;
+
+                HorizontalLayout {
+                    spacing: 14px;
+                    alignment: start;
+                    Logo {
+                        size: 48px;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text {
+                            text: root.heading;
+                            color: Theme.fg-strong;
+                            font-size: 22px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: root.subheading;
+                            color: Theme.fg-dim;
+                            font-size: 12px;
+                            overflow: elide;
+                        }
+                    }
+                }
+                Rectangle {
+                    height: 20px;
+                }
+
+                // Install: where and what.
+                if root.page == 0 && !root.uninstalling: VerticalLayout {
+                    alignment: start;
+                    spacing: 6px;
+                    Section {
+                        text: T.zh ? "安装位置" : "LOCATION";
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            height: 32px;
+                            horizontal-stretch: 1;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: dir-input.has-focus ? Theme.accent : Theme.control-border;
+                            background: Theme.input-bg;
+                            clip: true;
+                            dir-input := TextInput {
+                                x: 9px;
+                                width: parent.width - 18px;
+                                height: parent.height;
+                                text <=> root.install-dir;
+                                color: Theme.fg;
+                                single-line: true;
+                                vertical-alignment: center;
+                                selection-background-color: Theme.accent;
+                                selection-foreground-color: white;
+                            }
+                        }
+                        Btn {
+                            text: T.zh ? "浏览…" : "Browse…";
+                            clicked => {
+                                root.browse();
+                            }
+                        }
+                    }
+                    Rectangle {
+                        height: 10px;
+                    }
+                    Section {
+                        text: T.zh ? "选项" : "OPTIONS";
+                    }
+                    Rectangle {
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Theme.border-subtle;
+                        GridLayout {
+                            padding: 8px;
+                            padding-left: 12px;
+                            spacing-horizontal: 12px;
+                            Row {
+                                Check {
+                                    text: T.zh ? "创建桌面快捷方式" : "Desktop shortcut";
+                                    checked <=> root.opt-desktop;
+                                }
+                                Check {
+                                    text: T.zh ? "添加到开始菜单" : "Start menu entry";
+                                    checked <=> root.opt-start-menu;
+                                }
+                            }
+                            Row {
+                                Check {
+                                    text: T.zh ? "文件夹右键“用 Lite 打开”" : "“Open with Lite” for folders";
+                                    checked <=> root.opt-context-menu;
+                                }
+                                Check {
+                                    text: T.zh ? "添加到 PATH" : "Add to PATH";
+                                    checked <=> root.opt-path;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Uninstall: confirm.
+                if root.page == 0 && root.uninstalling: VerticalLayout {
+                    alignment: start;
+                    spacing: 10px;
+                    Text {
+                        text: T.zh ? "将从这台电脑上移除 Lite 及其快捷方式。" : "Lite and its shortcuts will be removed from this computer.";
+                        color: Theme.fg;
+                        wrap: word-wrap;
+                    }
+                    Check {
+                        text: T.zh ? "同时删除我的设置（最近项目、主题、快捷键）" : "Also delete my settings (recent folders, theme, keybindings)";
+                        checked <=> root.delete-settings;
+                    }
+                }
+
+                // Working: status line and progress bar.
+                if root.page == 1: VerticalLayout {
+                    alignment: start;
+                    spacing: 10px;
+                    Text {
+                        text: root.status;
+                        color: Theme.fg-muted;
+                    }
+                    Rectangle {
+                        height: 6px;
+                        border-radius: 3px;
+                        background: Theme.active;
+                        Rectangle {
+                            x: 0;
+                            width: parent.width * clamp(root.progress, 0, 1);
+                            height: parent.height;
+                            border-radius: 3px;
+                            background: Theme.accent;
+                        }
+                    }
+                }
+
+                // Done.
+                if root.page == 2: VerticalLayout {
+                    alignment: start;
+                    spacing: 10px;
+                    if root.runtime-missing: Text {
+                        text: T.zh ? "未能安装 WebView2 运行时，Lite 需要它才能启动。请联网后重新运行本安装程序，或从微软官网安装 WebView2。" : "The WebView2 runtime could not be installed, and Lite needs it to start. Run this setup again while online, or install WebView2 from Microsoft.";
+                        color: Theme.error;
+                        wrap: word-wrap;
+                    }
+                    if !root.uninstalling && !root.runtime-missing: Check {
+                        text: T.zh ? "启动 Lite" : "Launch Lite";
+                        checked <=> root.launch-after;
+                    }
+                }
+
+                // Failed.
+                if root.page == 3: Text {
+                    text: root.error;
+                    color: Theme.error;
+                    wrap: word-wrap;
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+
+                // ----- buttons -----
+                HorizontalLayout {
+                    spacing: 8px;
+                    SlintBadge {
+                        clicked => {
+                            root.open-url("https://slint.dev");
+                        }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    if root.page == 0: Btn {
+                        text: T.zh ? "取消" : "Cancel";
+                        clicked => {
+                            root.dismiss();
+                        }
+                    }
+                    if root.page == 0: Btn {
+                        primary: true;
+                        text: root.uninstalling ? (T.zh ? "卸载" : "Uninstall") : root.upgrade ? (T.zh ? "更新" : "Update") : (T.zh ? "安装" : "Install");
+                        clicked => {
+                            root.begin();
+                        }
+                    }
+                    if root.page == 3: Btn {
+                        text: T.zh ? "返回" : "Back";
+                        clicked => {
+                            root.page = 0;
+                        }
+                    }
+                    if root.page == 2 || root.page == 3: Btn {
+                        primary: true;
+                        text: root.page == 2 ? (T.zh ? "完成" : "Finish") : (T.zh ? "关闭" : "Close");
+                        clicked => {
+                            root.dismiss();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Frameless windows have no outline of their own.
+    Rectangle {
+        border-width: 1px;
+        border-color: Theme.border;
+    }
+}

@@ -53,8 +53,41 @@ fn plugins_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("plugins")
 }
 
+/// Per-user state lives outside the program files (an installed copy may be read-only, and an upgrade
+/// replaces `plugins/`): $LITE_STATE_FILE, else `Lite/state.json` in the user's config directory —
+/// %APPDATA% on Windows, ~/Library/Application Support on macOS, $XDG_CONFIG_HOME or ~/.config elsewhere.
 fn state_file() -> PathBuf {
+    if let Some(p) = std::env::var_os("LITE_STATE_FILE") {
+        return p.into();
+    }
+    let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    #[cfg(windows)]
+    let config = var("APPDATA");
+    #[cfg(target_os = "macos")]
+    let config = var("HOME").map(|h| h.join("Library").join("Application Support"));
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let config = var("XDG_CONFIG_HOME").or_else(|| var("HOME").map(|h| h.join(".config")));
+    match config {
+        Some(dir) => dir.join("Lite").join("state.json"),
+        None => legacy_state_file(),
+    }
+}
+
+/// Where state.json used to live (next to the plugins); still read once to carry settings over.
+fn legacy_state_file() -> PathBuf {
     plugins_dir().join("state.json")
+}
+
+/// First run after the move: copy the old state.json to the new place (the old file is left alone).
+fn migrate_state() {
+    let (new, old) = (state_file(), legacy_state_file());
+    if new == old || new.exists() || !old.is_file() {
+        return;
+    }
+    let copied = new.parent().map(fs::create_dir_all).unwrap_or(Ok(())).and_then(|_| fs::copy(&old, &new));
+    if let Err(e) = copied {
+        eprintln!("[lite] cannot migrate state.json: {e}");
+    }
 }
 
 /// Strip the Windows `\\?\` prefix that canonicalize() adds, for display and round-tripping.
@@ -76,7 +109,11 @@ fn load_state() -> Value {
 
 fn save_state(state: &Value) -> R<()> {
     let text = serde_json::to_string_pretty(state).map_err(err)?;
-    fs::write(state_file(), text).map_err(err)
+    let file = state_file();
+    if let Some(dir) = file.parent() {
+        fs::create_dir_all(dir).map_err(err)?;
+    }
+    fs::write(file, text).map_err(err)
 }
 
 // ---------- plugin host ----------
@@ -187,8 +224,15 @@ struct WorkspaceInfo {
     name: Option<String>,
 }
 
-/// Bind a folder to the calling window. `folder: None` + `restore` reopens the most recent
-/// workspace (only for the first window); otherwise the window stays without a workspace.
+/// `lite <folder>` (e.g. Explorer's "Open with Lite"): the folder the first window starts with.
+fn folder_argument() -> Option<String> {
+    let arg = std::env::args_os().nth(1)?;
+    Path::new(&arg).is_dir().then(|| arg.to_string_lossy().into_owned())
+}
+
+/// Bind a folder to the calling window. `folder: None` + `restore` opens the folder given on the
+/// command line, else the most recent workspace (only for the first window); otherwise the window
+/// stays without a workspace.
 #[tauri::command]
 fn init_workspace(window: Window, kernel: State<Kernel>, folder: Option<String>, restore: bool) -> WorkspaceInfo {
     let _guard = kernel.state_lock.lock().unwrap();
@@ -200,7 +244,7 @@ fn init_workspace(window: Window, kernel: State<Kernel>, folder: Option<String>,
 
     let wanted = match folder.filter(|f| !f.is_empty()) {
         Some(f) => Some(f),
-        None if restore && window.label() == "main" => recent.first().cloned(),
+        None if restore && window.label() == "main" => folder_argument().or_else(|| recent.first().cloned()),
         None => None,
     };
     let root = wanted.and_then(|f| Path::new(&f).canonicalize().ok()).filter(|p| p.is_dir());
@@ -641,6 +685,7 @@ fn fs_reveal(window: Window, kernel: State<Kernel>, path: String) -> R<()> {
 }
 
 fn main() {
+    migrate_state();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .register_uri_scheme_protocol("lite-plugin", |_ctx, request| serve_plugin_file(&request))
