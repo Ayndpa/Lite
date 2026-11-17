@@ -4,6 +4,7 @@
   "panel.title": "终端",
   "action.new": "新建终端",
   "action.kill": "终止终端",
+  "action.killOthers": "终止其他终端",
   "action.hide": "隐藏面板",
   "action.clear": "清除",
   "edit.copy": "复制",

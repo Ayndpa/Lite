@@ -4,6 +4,7 @@
   "panel.title": "Terminal",
   "action.new": "New Terminal",
   "action.kill": "Kill Terminal",
+  "action.killOthers": "Kill Other Terminals",
   "action.hide": "Hide Panel",
   "action.clear": "Clear",
   "edit.copy": "Copy",

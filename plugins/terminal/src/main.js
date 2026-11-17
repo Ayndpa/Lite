@@ -72,7 +72,7 @@ export async function activate(ctx) {
     });
     // Keys the shell consumed must not also trigger app commands (e.g. Ctrl+S, Ctrl+W).
     el.addEventListener("keydown", (e) => !goesToApp(ctx.keybindings.fromEvent(e)) && e.stopPropagation());
-    el.addEventListener("contextmenu", (e) => { e.preventDefault(); termMenu(e, entry); });
+    el.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); termMenu(e, entry); });
 
     try {
       const { id, shell } = await ctx.pty.spawn({
@@ -127,9 +127,20 @@ export async function activate(ctx) {
       tab.onclick = () => setActive(entry);
       tab.onauxclick = (e) => e.button === 1 && kill(entry);
       tab.onmousedown = (e) => e.button === 1 && e.preventDefault();
+      tab.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, entry); };
       tabsEl.append(tab);
     });
   }
+
+  // ---------- context menus: the screen, a tab, the rest of the panel ----------
+
+  /** The panel itself: the same actions as the header's buttons. */
+  const panelItems = () => [
+    { command: "terminal.toggleMaximize", label: t(wb.isPanelMaximized() ? "action.restore" : "action.maximize") },
+    { label: t("action.hide"), keys: ctx.keysFor("terminal.toggle"), run: () => wb.hidePanel() },
+  ];
+  const newItem = () => ({ command: "terminal.new", label: t("action.new") });
+  const clear = (entry) => { entry.term.clear(); entry.term.focus(); };
 
   function termMenu(e, entry) {
     showMenu(ctx, e, [
@@ -137,10 +148,37 @@ export async function activate(ctx) {
       { label: t("edit.paste"), keys: "Ctrl+V", run: () => paste(entry) },
       { label: t("edit.selectAll"), run: () => entry.term.selectAll() },
       "-",
-      { label: t("action.clear"), run: () => entry.term.clear() },
+      { label: t("action.clear"), run: () => clear(entry) },
       "-",
-      { command: "terminal.new" },
-      { command: "terminal.kill", label: t("action.kill") },
+      newItem(),
+      { label: t("action.kill"), danger: true, run: () => kill(entry) },
+      "-",
+      ...panelItems(),
+    ]);
+  }
+
+  /** A tab: acts on that terminal, which need not be the one on screen. */
+  function tabMenu(e, entry) {
+    const others = terms.filter((other) => other !== entry);
+    showMenu(ctx, e, [
+      newItem(),
+      "-",
+      { label: t("action.clear"), run: () => clear(entry) },
+      { label: t("action.kill"), danger: true, run: () => kill(entry) },
+      { label: t("action.killOthers"), danger: true, disabled: !others.length, run: () => others.forEach(kill) },
+      "-",
+      ...panelItems(),
+    ]);
+  }
+
+  /** The header and any other empty part of the panel. */
+  function panelMenu(e) {
+    showMenu(ctx, e, [
+      newItem(),
+      { label: t("action.clear"), disabled: !active, run: () => clear(active) },
+      { label: t("action.kill"), danger: true, disabled: !active, run: () => kill(active) },
+      "-",
+      ...panelItems(),
     ]);
   }
 
@@ -181,6 +219,8 @@ export async function activate(ctx) {
     syncMax();
     ctx.events.on("workbench.panel", syncMax);
     button("x", t("action.hide"), () => wb.hidePanel());
+    // Right-click anywhere else in the panel (terminals and tabs show their own menu and stop the event).
+    host.querySelector(".term-panel").addEventListener("contextmenu", (e) => { e.preventDefault(); panelMenu(e); });
     // Keep the active terminal's grid matched to the panel size (drag handle, window resize).
     let pending = false;
     new ResizeObserver(() => {
