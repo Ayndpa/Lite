@@ -2329,15 +2329,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
-name = "lite-setup"
+name = "lite-integration"
 version = "0.1.0"
 dependencies = [
  "mslnk",
+ "windows-sys 0.59.0",
+ "winreg",
+]
+
+[[package]]
+name = "lite-setup"
+version = "0.1.0"
+dependencies = [
+ "lite-integration",
  "rfd",
  "serde_json",
  "slint",
  "slint-build",
- "windows-sys 0.59.0",
  "winreg",
  "winresource",
  "zip",

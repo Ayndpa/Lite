@@ -5,12 +5,14 @@
 //!   - discovers plugins on disk and serves their files to the UI kernel
 //!   - persists kernel state (disabled plugins, recent workspaces)
 //!   - owns the workspace of each window (one window = one project folder)
-//!   - exposes fs primitives, scoped to the window's workspace
+//!   - exposes fs primitives, scoped to the window's workspace (plus single files the user opened
+//!     from outside it: on the command line / "Open with", or with the file dialog)
+//!   - watches the workspace folder and tells the window what changed (watch.rs)
 
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -21,6 +23,7 @@ use std::{
 use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
 
 mod pty;
+mod watch;
 
 type R<T> = Result<T, String>;
 
@@ -34,6 +37,9 @@ fn err<E: std::fmt::Display>(e: E) -> String {
 struct Kernel {
     /// window label -> canonical workspace root
     workspaces: Mutex<HashMap<String, PathBuf>>,
+    /// window label -> canonical paths of single files the user opened there from outside the
+    /// workspace. Only the host adds to it (command line, file dialog), never the UI.
+    files: Mutex<HashMap<String, HashSet<PathBuf>>>,
     /// serializes read-modify-write of state.json across windows
     state_lock: Mutex<()>,
     next_window: AtomicUsize,
@@ -222,19 +228,42 @@ fn write_state(kernel: State<Kernel>, state: Value) -> R<()> {
 struct WorkspaceInfo {
     root: Option<String>,
     name: Option<String>,
+    /// Single files to open right away (given on the command line).
+    files: Vec<String>,
 }
 
-/// `lite <folder>` (e.g. Explorer's "Open with Lite"): the folder the first window starts with.
-fn folder_argument() -> Option<String> {
-    let arg = std::env::args_os().nth(1)?;
-    Path::new(&arg).is_dir().then(|| arg.to_string_lossy().into_owned())
+/// `lite <folder>` / `lite <file>…` (e.g. Explorer's "Open with Lite"): what the first window starts
+/// with — the first folder, and every file. Anything else (options, missing paths) is ignored.
+fn startup_arguments() -> (Option<String>, Vec<PathBuf>) {
+    let (mut folder, mut files) = (None, Vec::new());
+    for arg in std::env::args_os().skip(1) {
+        let path = Path::new(&arg);
+        if path.is_dir() {
+            folder.get_or_insert_with(|| arg.to_string_lossy().into_owned());
+        } else if path.is_file() {
+            files.extend(path.canonicalize());
+        }
+    }
+    (folder, files)
 }
 
-/// Bind a folder to the calling window. `folder: None` + `restore` opens the folder given on the
-/// command line, else the most recent workspace (only for the first window); otherwise the window
-/// stays without a workspace.
+/// Let the window read and write this file although it is outside its workspace.
+fn grant_file(kernel: &Kernel, window: &Window, canonical: PathBuf) {
+    kernel.files.lock().unwrap().entry(window.label().into()).or_default().insert(canonical);
+}
+
+/// Bind a folder to the calling window. `folder: None` + `restore` (only for the first window) opens
+/// what was given on the command line — a folder, or files (then without a folder) — else the most
+/// recent workspace; otherwise the window stays without a workspace.
 #[tauri::command]
-fn init_workspace(window: Window, kernel: State<Kernel>, folder: Option<String>, restore: bool) -> WorkspaceInfo {
+fn init_workspace(
+    app: tauri::AppHandle,
+    window: Window,
+    kernel: State<Kernel>,
+    watchers: State<watch::Watchers>,
+    folder: Option<String>,
+    restore: bool,
+) -> WorkspaceInfo {
     let _guard = kernel.state_lock.lock().unwrap();
     let mut state = load_state();
     let mut recent: Vec<String> = state["recent"]
@@ -242,22 +271,35 @@ fn init_workspace(window: Window, kernel: State<Kernel>, folder: Option<String>,
         .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
         .unwrap_or_default();
 
+    let mut files = Vec::new();
     let wanted = match folder.filter(|f| !f.is_empty()) {
         Some(f) => Some(f),
-        None if restore && window.label() == "main" => folder_argument().or_else(|| recent.first().cloned()),
+        None if restore && window.label() == "main" => {
+            let (folder, given) = startup_arguments();
+            files = given;
+            // Just files: show them on their own instead of in whatever project was open last.
+            folder.or_else(|| if files.is_empty() { recent.first().cloned() } else { None })
+        }
         None => None,
     };
     let root = wanted.and_then(|f| Path::new(&f).canonicalize().ok()).filter(|p| p.is_dir());
+    let open: Vec<String> = files.iter().map(|f| display(f)).collect();
+    for file in files {
+        grant_file(&kernel, &window, file);
+    }
 
     let Some(root) = root else {
         kernel.workspaces.lock().unwrap().remove(window.label());
+        watchers.unwatch(window.label());
         let _ = window.set_title("Lite");
-        return WorkspaceInfo { root: None, name: None };
+        return WorkspaceInfo { root: None, name: None, files: open };
     };
 
     let shown = display(&root);
     let name = root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| shown.clone());
     kernel.workspaces.lock().unwrap().insert(window.label().into(), root);
+    // The plain form, so the paths it reports are the ones the UI uses.
+    watchers.watch(app, window.label(), Path::new(&shown));
     let _ = window.set_title(&format!("{name} — Lite"));
 
     recent.retain(|r| !r.eq_ignore_ascii_case(&shown));
@@ -268,7 +310,22 @@ fn init_workspace(window: Window, kernel: State<Kernel>, folder: Option<String>,
         eprintln!("[lite] cannot save state: {e}");
     }
 
-    WorkspaceInfo { root: Some(shown), name: Some(name) }
+    WorkspaceInfo { root: Some(shown), name: Some(name), files: open }
+}
+
+/// Ask for files to open; the ones picked become readable and writable in this window.
+#[tauri::command]
+async fn pick_files(window: Window, kernel: State<'_, Kernel>) -> R<Vec<String>> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = window.dialog().file().set_parent(&window).blocking_pick_files().unwrap_or_default();
+    let mut out = Vec::new();
+    for file in picked.into_iter().filter_map(|p| p.into_path().ok()) {
+        if let Ok(canonical) = file.canonicalize() {
+            out.push(display(&canonical));
+            grant_file(&kernel, &window, canonical);
+        }
+    }
+    Ok(out)
 }
 
 #[tauri::command]
@@ -311,6 +368,52 @@ async fn open_window(app: tauri::AppHandle, kernel: State<'_, Kernel>, folder: O
     }
     configure_webview(&builder.build().map_err(err)?);
     Ok(())
+}
+
+// ---------- desktop integration (what the installer sets up; see ../integration) ----------
+
+/// The switches in Settings: shortcuts, "Open with Lite" context menus, PATH — for this copy of Lite.
+#[derive(Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IntegrationState {
+    desktop: bool,
+    start_menu: bool,
+    context_menu: bool,
+    add_to_path: bool,
+}
+
+fn app_dir() -> R<PathBuf> {
+    let exe = std::env::current_exe().map_err(err)?;
+    exe.parent().map(Path::to_path_buf).ok_or_else(|| "cannot locate the program folder".into())
+}
+
+fn integration_state(dir: &Path) -> IntegrationState {
+    let now = lite_integration::current(dir);
+    IntegrationState { desktop: now.desktop, start_menu: now.start_menu, context_menu: now.context_menu, add_to_path: now.add_to_path }
+}
+
+/// None where this isn't implemented (the UI then leaves the section out).
+#[tauri::command]
+fn integration_get() -> R<Option<IntegrationState>> {
+    if !lite_integration::supported() {
+        return Ok(None);
+    }
+    Ok(Some(integration_state(&app_dir()?)))
+}
+
+/// Apply the switches; returns what is actually set up afterwards. Async: writing PATH notifies every
+/// running program and can take a moment.
+#[tauri::command]
+async fn integration_set(state: IntegrationState) -> R<IntegrationState> {
+    let dir = app_dir()?;
+    let wanted = lite_integration::Integration {
+        desktop: state.desktop,
+        start_menu: state.start_menu,
+        context_menu: state.context_menu,
+        add_to_path: state.add_to_path,
+    };
+    lite_integration::apply(&dir, wanted)?;
+    Ok(integration_state(&dir))
 }
 
 // ---------- keyboard ----------
@@ -594,6 +697,16 @@ fn scoped(kernel: &Kernel, window: &Window, path: &str) -> R<PathBuf> {
     Ok(canon)
 }
 
+/// A file to read or write: inside the workspace, or one the user opened in this window from elsewhere.
+fn scoped_file(kernel: &Kernel, window: &Window, path: &str) -> R<PathBuf> {
+    if let Ok(canonical) = Path::new(path).canonicalize() {
+        if kernel.files.lock().unwrap().get(window.label()).is_some_and(|files| files.contains(&canonical)) {
+            return Ok(canonical);
+        }
+    }
+    scoped(kernel, window, path)
+}
+
 #[derive(Serialize)]
 struct DirEntry {
     name: String,
@@ -621,13 +734,13 @@ fn fs_read_dir(window: Window, kernel: State<Kernel>, path: String) -> R<Vec<Dir
 /// binary response so nothing is JSON-escaped and re-parsed (for 80 MB that alone cost ~0.7 s).
 #[tauri::command]
 async fn fs_read_text(window: Window, kernel: State<'_, Kernel>, path: String) -> R<tauri::ipc::Response> {
-    let bytes = fs::read(scoped(&kernel, &window, &path)?).map_err(err)?;
+    let bytes = fs::read(scoped_file(&kernel, &window, &path)?).map_err(err)?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]
 fn fs_write_text(window: Window, kernel: State<Kernel>, path: String, text: String) -> R<()> {
-    fs::write(scoped(&kernel, &window, &path)?, text).map_err(err)
+    fs::write(scoped_file(&kernel, &window, &path)?, text).map_err(err)
 }
 
 /// Like `scoped`, but refuses the workspace root itself (it can't be renamed, moved or deleted).
@@ -673,7 +786,7 @@ fn fs_trash(window: Window, kernel: State<Kernel>, path: String) -> R<()> {
 /// Show the item in the OS file manager (Explorer / Finder / the folder on Linux).
 #[tauri::command]
 fn fs_reveal(window: Window, kernel: State<Kernel>, path: String) -> R<()> {
-    let p = scoped(&kernel, &window, &path)?;
+    let p = scoped_file(&kernel, &window, &path)?;
     let shown = display(&p);
     #[cfg(windows)]
     let result = std::process::Command::new("explorer").arg(format!("/select,{shown}")).spawn();
@@ -697,9 +810,12 @@ fn main() {
         })
         .manage(Kernel::default())
         .manage(pty::PtyHost::default())
+        .manage(watch::Watchers::default())
         .on_window_event(|window, event| match event {
             WindowEvent::Destroyed => {
                 window.state::<Kernel>().workspaces.lock().unwrap().remove(window.label());
+                window.state::<Kernel>().files.lock().unwrap().remove(window.label());
+                window.state::<watch::Watchers>().unwatch(window.label());
                 window.state::<pty::PtyHost>().kill_owned_by(window.label());
             }
             // Minimizing/restoring arrives as a resize.
@@ -713,8 +829,11 @@ fn main() {
             write_state,
             init_workspace,
             pick_folder,
+            pick_files,
             open_window,
             hotkeys_taken,
+            integration_get,
+            integration_set,
             fs_read_dir,
             fs_read_text,
             fs_write_text,

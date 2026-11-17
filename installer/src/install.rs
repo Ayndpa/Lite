@@ -9,22 +9,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub use platform::{default_dir, installed_dir, is_chinese, launch};
+pub use lite_integration::{is_chinese, Integration, APP_EXE};
+pub use platform::{default_dir, installed_dir, launch};
 
 pub const VERSION: &str = env!("LITE_VERSION");
 const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/payload.zip"));
 const MANIFEST: &str = "install-manifest.txt";
-pub const APP_EXE: &str = if cfg!(windows) { "lite.exe" } else { "lite" };
 pub const UNINSTALLER: &str = if cfg!(windows) { "uninstall.exe" } else { "uninstall" };
 
 #[derive(Clone, Debug)]
 pub struct Options {
     pub dir: PathBuf,
-    pub desktop: bool,
-    pub start_menu: bool,
-    /// "Open with Lite" on folders in the file manager.
-    pub context_menu: bool,
-    pub add_to_path: bool,
+    /// Shortcuts, context menus, PATH: the wizard's checkboxes (and later the app's settings).
+    pub integration: Integration,
 }
 
 /// What is happening, for the progress text (the UI words it).
@@ -179,43 +176,19 @@ mod platform {
         path::{Path, PathBuf},
         process::Command,
     };
-    use windows_sys::{
-        core::GUID,
-        Win32::{
-            Globalization::GetUserDefaultUILanguage,
-            System::Com::CoTaskMemFree,
-            UI::{
-                Shell::{FOLDERID_Desktop, FOLDERID_Programs, SHGetKnownFolderPath},
-                WindowsAndMessaging::{SendMessageTimeoutW, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE},
-            },
-        },
-    };
     use winreg::{
-        enums::{RegType, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE},
-        RegKey, RegValue,
+        enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
+        RegKey,
     };
 
     // Everything is per user (HKCU, %LOCALAPPDATA%): no administrator rights needed.
     const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Lite";
-    const CONTEXT_KEYS: [(&str, &str); 2] = [
-        (r"Software\Classes\Directory\shell\Lite", "%1"),            // right-click a folder
-        (r"Software\Classes\Directory\Background\shell\Lite", "%V"), // right-click inside a folder
-    ];
     const WEBVIEW2_CLIENT: &str = r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
     const WEBVIEW2_BOOTSTRAPPER: &str = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-    fn other<E: std::fmt::Display>(e: E) -> Error {
-        Error::Other(e.to_string())
-    }
-
     fn env_dir(name: &str) -> Option<PathBuf> {
         std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from)
-    }
-
-    pub fn is_chinese() -> bool {
-        // Primary language id (low 10 bits): 0x04 = Chinese.
-        unsafe { GetUserDefaultUILanguage() & 0x3ff == 0x04 }
     }
 
     pub fn default_dir() -> PathBuf {
@@ -237,50 +210,18 @@ mod platform {
         let _ = Command::new(dir.join(APP_EXE)).current_dir(dir).spawn();
     }
 
-    fn known_folder(id: &GUID) -> Option<PathBuf> {
-        unsafe {
-            let mut raw = std::ptr::null_mut();
-            if SHGetKnownFolderPath(id, 0 as _, std::ptr::null_mut(), &mut raw) != 0 {
-                return None;
-            }
-            let len = (0..).take_while(|&i| *raw.add(i) != 0).count();
-            let path = String::from_utf16_lossy(std::slice::from_raw_parts(raw, len));
-            CoTaskMemFree(raw as _);
-            Some(path.into())
-        }
-    }
-
-    fn shortcut_paths() -> [Option<PathBuf>; 2] {
-        [known_folder(&FOLDERID_Desktop), known_folder(&FOLDERID_Programs)].map(|d| d.map(|d| d.join("Lite.lnk")))
-    }
-
-    fn set_shortcut(link: Option<PathBuf>, wanted: bool, dir: &Path) -> Result<(), Error> {
-        let Some(link) = link else { return Ok(()) };
-        if !wanted {
-            let _ = fs::remove_file(link);
-            return Ok(());
-        }
-        let mut shortcut = mslnk::ShellLink::new(dir.join(APP_EXE)).map_err(other)?;
-        shortcut.set_working_dir(Some(dir.to_string_lossy().into_owned()));
-        shortcut.create_lnk(link).map_err(other)
-    }
-
+    /// Shortcuts, context menus, PATH and "Open with" are lite-integration's (the app's settings change
+    /// them later with the same code); the entry in Settings > Apps is the installer's own.
     pub fn integrate(o: &Options, installed_bytes: u64) -> Result<(), Error> {
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let exe = o.dir.join(APP_EXE);
-        let exe_str = exe.to_string_lossy().into_owned();
+        let exe = o.dir.join(APP_EXE).to_string_lossy().into_owned();
         let uninstaller = o.dir.join(UNINSTALLER).to_string_lossy().into_owned();
 
-        let [desktop, programs] = shortcut_paths();
-        set_shortcut(desktop, o.desktop, &o.dir)?;
-        set_shortcut(programs, o.start_menu, &o.dir)?;
-
         // Settings > Apps (and the old "Programs and Features").
-        let (key, _) = hkcu.create_subkey(UNINSTALL_KEY)?;
+        let (key, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(UNINSTALL_KEY)?;
         key.set_value("DisplayName", &"Lite")?;
         key.set_value("DisplayVersion", &VERSION)?;
         key.set_value("Publisher", &"Lite")?;
-        key.set_value("DisplayIcon", &exe_str)?;
+        key.set_value("DisplayIcon", &exe)?;
         key.set_value("InstallLocation", &o.dir.to_string_lossy().into_owned())?;
         key.set_value("UninstallString", &format!("\"{uninstaller}\" --uninstall"))?;
         key.set_value("QuietUninstallString", &format!("\"{uninstaller}\" --uninstall /S"))?;
@@ -288,63 +229,13 @@ mod platform {
         key.set_value("NoModify", &1u32)?;
         key.set_value("NoRepair", &1u32)?;
 
-        for (path, arg) in CONTEXT_KEYS {
-            if !o.context_menu {
-                let _ = hkcu.delete_subkey_all(path);
-                continue;
-            }
-            let (key, _) = hkcu.create_subkey(path)?;
-            key.set_value("", &if is_chinese() { "用 Lite 打开" } else { "Open with Lite" })?;
-            key.set_value("Icon", &exe_str)?;
-            let (command, _) = key.create_subkey("command")?;
-            command.set_value("", &format!("\"{exe_str}\" \"{arg}\""))?;
-        }
-
-        set_on_path(&o.dir, o.add_to_path)?;
-        Ok(())
+        lite_integration::apply(&o.dir, o.integration).map_err(Error::Other)?;
+        lite_integration::register_open_with(&o.dir).map_err(Error::Other)
     }
 
     pub fn remove_integration(dir: &Path) -> Result<(), Error> {
-        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        for link in shortcut_paths().into_iter().flatten() {
-            let _ = fs::remove_file(link);
-        }
-        for (path, _) in CONTEXT_KEYS {
-            let _ = hkcu.delete_subkey_all(path);
-        }
-        set_on_path(dir, false)?;
-        let _ = hkcu.delete_subkey_all(UNINSTALL_KEY);
-        Ok(())
-    }
-
-    /// Add or remove `dir` in the user's PATH. The value keeps its registry type (usually
-    /// REG_EXPAND_SZ, so entries like %USERPROFILE%\bin keep working).
-    fn set_on_path(dir: &Path, wanted: bool) -> Result<(), Error> {
-        let (env, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)?;
-        let (old, vtype) = match env.get_raw_value("Path") {
-            Ok(v) => {
-                let wide: Vec<u16> = v.bytes.chunks_exact(2).map(|b| u16::from_le_bytes([b[0], b[1]])).collect();
-                (String::from_utf16_lossy(&wide).trim_end_matches('\0').to_string(), v.vtype)
-            }
-            Err(_) => (String::new(), RegType::REG_EXPAND_SZ),
-        };
-        let dir = dir.to_string_lossy();
-        let is_dir = |entry: &str| entry.trim().trim_end_matches('\\').eq_ignore_ascii_case(dir.trim_end_matches('\\'));
-        let mut entries: Vec<&str> = old.split(';').filter(|e| !e.trim().is_empty() && !is_dir(e)).collect();
-        if wanted {
-            entries.push(&dir);
-        }
-        let new = entries.join(";");
-        if new == old {
-            return Ok(());
-        }
-        let bytes = new.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
-        env.set_raw_value("Path", &RegValue { bytes, vtype })?;
-        // Tell running programs (Explorer, so new terminals) that the environment changed.
-        let name: Vec<u16> = "Environment\0".encode_utf16().collect();
-        unsafe {
-            SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, name.as_ptr() as isize, SMTO_ABORTIFHUNG, 2000, std::ptr::null_mut());
-        }
+        lite_integration::remove(dir).map_err(Error::Other)?;
+        let _ = RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(UNINSTALL_KEY);
         Ok(())
     }
 
@@ -388,10 +279,6 @@ mod platform {
 mod platform {
     use super::{Error, Options};
     use std::path::{Path, PathBuf};
-
-    pub fn is_chinese() -> bool {
-        std::env::var("LANG").is_ok_and(|l| l.starts_with("zh"))
-    }
 
     pub fn default_dir() -> PathBuf {
         std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default().join(".local").join("opt").join("lite")

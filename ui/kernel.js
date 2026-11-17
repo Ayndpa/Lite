@@ -2,11 +2,11 @@
 // Provides: workspace (one folder per window), plugin loading (dependency order), commands,
 // keybindings, events, slots (UI mount points), services (plugin-to-plugin APIs) and
 // permission-gated host access, localization, color themes (theme.js). Its own UI: the title bar (menu bar,
-// project switcher, window controls — titlebar.js; plugins add menu items, buttons and the "titlebar.center" slot) and the
-// background: a logo watermark (with hints contributed by plugins), the About dialog and the language and
-// theme pickers — see shell.js.
+// project switcher, settings button, window controls — titlebar.js; plugins add menu items, buttons and the
+// "titlebar.center" slot) and the background: a logo watermark (with hints contributed by plugins), the About
+// and Settings dialogs and the language and theme pickers — see shell.js.
 
-import { createLogo, formatCombo, mountWatermark, showAbout, showConfirm, showLanguagePicker, showThemePicker } from "./shell.js";
+import { createLogo, formatCombo, mountWatermark, showAbout, showConfirm, showLanguagePicker, showSettings, showThemePicker } from "./shell.js";
 import { AUTO, BUILTIN_THEMES, createThemes, cssVar } from "./theme.js";
 import { mountTitlebar } from "./titlebar.js";
 import { createPluginManager } from "./plugin-manager.js";
@@ -36,7 +36,7 @@ let watermark = null;
 const watermarkHints = []; // { commandId, label, plugin }
 let pluginManager = null; // built in (ui/plugin-manager.js), created in boot()
 
-let workspace = { root: null, name: null };
+let workspace = { root: null, name: null, files: [] };
 let titlebar = null; // created in boot(), once the workspace is known
 const platform = /Mac/.test(navigator.platform) ? "macos" : /Win/.test(navigator.platform) ? "windows" : "linux";
 
@@ -231,7 +231,7 @@ window.addEventListener("keydown", (e) => {
   executeCommand(id).catch((err) => console.error(err));
 });
 
-// ---------- shell: About + watermark ----------
+// ---------- shell: About, Settings + watermark ----------
 
 function webviewVersion() {
   const ua = navigator.userAgent;
@@ -244,7 +244,27 @@ function openAbout() {
     appName: appInfo.name,
     version: `${t("about.version")} ${appInfo.version}`,
     t,
-    settings: [
+    rows: [
+      [t("about.tauri"), appInfo.tauri],
+      [t("about.engine"), webviewVersion()],
+      [t("about.platform"), `${platform} (${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] ?? navigator.platform})`],
+      [t("about.plugins"), t("about.pluginsValue", { active: all.filter((p) => p.status === "active").length, total: all.length })],
+      [t("about.workspace"), workspace.root ?? t("about.workspaceNone")],
+    ],
+  });
+}
+
+/**
+ * Settings: the kernel's own (theme, language, plugins) and, where the host implements it, how this copy
+ * of Lite hooks into the desktop — the same choices the installer offers, changeable afterwards.
+ */
+async function openSettings() {
+  const all = [...plugins.values()];
+  // null: not implemented on this system (or the host couldn't tell) — the section is left out.
+  const integration = await invoke("integration_get").catch((e) => (console.error("[lite] integration", e), null));
+  showSettings({
+    t,
+    general: [
       { icon: "palette", label: t("about.theme"), value: localizeTheme(themes.current()).name, run: openThemePicker },
       { icon: "languages", label: t("about.language"), value: localeName(locale), run: openLanguagePicker },
       {
@@ -254,12 +274,19 @@ function openAbout() {
         run: () => executeCommand("plugins.manage"),
       },
     ],
-    rows: [
-      [t("about.tauri"), appInfo.tauri],
-      [t("about.engine"), webviewVersion()],
-      [t("about.platform"), `${platform} (${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] ?? navigator.platform})`],
-      [t("about.workspace"), workspace.root ?? t("about.workspaceNone")],
-    ],
+    integration: integration && {
+      title: t("settings.integration"),
+      note: t("settings.integration.note"),
+      items: [
+        { key: "desktop", icon: "monitor", label: t("settings.desktop") },
+        { key: "startMenu", icon: "layout-grid", label: t("settings.startMenu") },
+        { key: "contextMenu", icon: "mouse-pointer-click", label: t("settings.contextMenu"), hint: t("settings.contextMenu.hint") },
+        { key: "addToPath", icon: "square-terminal", label: t("settings.path"), hint: t("settings.path.hint") },
+      ],
+      state: integration,
+      set: (state) => invoke("integration_set", { state }),
+      failed: (error) => t("settings.integration.failed", { error: String(error) }),
+    },
   });
 }
 
@@ -320,6 +347,7 @@ function openThemePicker() {
 // Kernel-owned commands, so palettes, title bars and the watermark logo can all reach them.
 // Titles are filled in once the kernel's messages are loaded (see boot).
 commands.set("app.about", { id: "app.about", title: "", titleEn: "", run: openAbout, plugin: "kernel" });
+commands.set("app.settings", { id: "app.settings", title: "", titleEn: "", run: openSettings, plugin: "kernel" });
 commands.set("app.language", { id: "app.language", title: "", titleEn: "", run: openLanguagePicker, plugin: "kernel" });
 commands.set("app.theme", { id: "app.theme", title: "", titleEn: "", run: openThemePicker, plugin: "kernel" });
 
@@ -379,6 +407,8 @@ function setupWorkspaceCommands() {
   };
   const cmd = (id, key, run) => kernelCommand(id, t(key), tEn(key), run);
   cmd("workspace.openFolder", "cmd.openFolder", () => openFolder(false));
+  // Any files, also outside the folder: the host lets this window read and write the ones picked.
+  cmd("workspace.openFile", "cmd.openFile", async () => openFiles(await invoke("pick_files")));
   cmd("workspace.openFolderNewWindow", "cmd.openFolderNewWindow", () => openFolder(true));
   cmd("workspace.newWindow", "cmd.newWindow", () => invoke("open_window", { folder: null }));
   cmd("workspace.close", "cmd.closeFolder", () => workspace.root && openWorkspace(null));
@@ -386,6 +416,16 @@ function setupWorkspaceCommands() {
   bindDefault("ctrl+o", "workspace.openFolder");
   bindDefault("ctrl+shift+n", "workspace.newWindow");
 }
+
+/** Hand files to whichever plugin edits them (the same event the file tree sends). */
+function openFiles(paths) {
+  for (const path of paths) emit("file.open", { path, name: path.split(/[\\/]/).pop() });
+}
+
+// The host watches the workspace folder (src-tauri/src/watch.rs) and reports changes in batches,
+// whoever made them — this app, a terminal, another program. Plugins get them as the "fs.changed"
+// event: { all, paths, structural } — see README.
+appWindow.listen("lite://fs-changed", ({ payload }) => emit("fs.changed", payload));
 
 // ---------- plugin context ----------
 
@@ -509,7 +549,8 @@ function createContext(manifest) {
       openInNewWindow: (path) => (need("workspace"), invoke("open_window", { folder: path ?? null })),
       recent: async () => (await invoke("read_state")).recent ?? [],
     },
-    // Scoped to the workspace by the Rust kernel; fails when no folder is open.
+    // Scoped by the Rust kernel to the workspace, plus (reading, writing, revealing) single files the
+    // user opened from elsewhere; everything else fails.
     fs: {
       readDir: (path) => (need("fs"), invoke("fs_read_dir", { path })),
       // Arrives as raw bytes (no JSON round-trip); invalid UTF-8 shows as U+FFFD instead of failing.
@@ -746,6 +787,7 @@ async function boot() {
   const tauriApp = window.__TAURI__.app;
   [appInfo.name, appInfo.version, appInfo.tauri] = await Promise.all([tauriApp.getName(), tauriApp.getVersion(), tauriApp.getTauriVersion()]);
   Object.assign(commands.get("app.about"), { title: t("command.about", appInfo), titleEn: tEn("command.about", appInfo) });
+  Object.assign(commands.get("app.settings"), { title: t("command.settings"), titleEn: tEn("command.settings") });
   Object.assign(commands.get("app.language"), { title: t("command.language"), titleEn: tEn("command.language") });
   Object.assign(commands.get("app.theme"), { title: t("command.theme"), titleEn: tEn("command.theme") });
   watermark = mountWatermark({ appName: appInfo.name, logoTitle: t("about.tooltip", appInfo), onLogoClick: openAbout });
@@ -772,8 +814,8 @@ async function boot() {
   });
   defineSlot("titlebar.center", titlebar.center);
   // The kernel's own menu items; plugins add theirs (ctx.menubar.add) between these groups.
-  titlebar.addMenuItems("file", [{ command: "workspace.openFolder" }, { command: "workspace.openFolderNewWindow" }, { command: "workspace.newWindow" }], { order: 10 });
-  titlebar.addMenuItems("file", [{ command: "app.theme" }, { command: "app.language" }, { command: "plugins.manage" }], { order: 800 });
+  titlebar.addMenuItems("file", [{ command: "workspace.openFile" }, { command: "workspace.openFolder" }, { command: "workspace.openFolderNewWindow" }, { command: "workspace.newWindow" }], { order: 10 });
+  titlebar.addMenuItems("file", [{ command: "app.settings" }, { command: "app.theme" }, { command: "app.language" }, { command: "plugins.manage" }], { order: 800 });
   titlebar.addMenuItems("file", [...(workspace.root ? [{ command: "workspace.close" }] : []), { command: "window.close" }], { order: 900 });
   titlebar.addMenuItems("help", [{ command: "plugins.reload" }], { order: 0 });
   titlebar.addMenuItems("help", [{ command: "app.about" }], { order: 900 });
@@ -804,6 +846,7 @@ async function boot() {
   // resolved) service promise: let those callbacks run first, then restore the pre-reload view.
   await null;
   pluginManager.restore();
+  openFiles(workspace.files ?? []); // `lite <file>` / "Open with Lite"
   console.log("[lite] workspace:", workspace.root, "plugins:", Object.fromEntries([...plugins].map(([k, v]) => [k, v.status])));
 }
 

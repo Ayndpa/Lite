@@ -41,7 +41,9 @@ plugins/
                     setPanelMaximized/togglePanelMaximized（面板盖住编辑区，隐藏后再打开仍保持最大化）
   terminal/         集成终端（xterm.js，首次打开才加载）：Ctrl+` 切换、Ctrl+Shift+` 新建，多终端，
                     面板标题栏「最大化面板」按钮（或命令「终端: 切换最大化面板」）让终端盖住整个编辑区，再点还原；
-                    Ctrl+C 有选区时复制否则中断、Ctrl+V 粘贴；普通 Ctrl+字母 交给 Shell，其他应用快捷键照常生效
+                    Ctrl+C 有选区时复制否则中断、Ctrl+V 粘贴；普通 Ctrl+字母 交给 Shell，其他应用快捷键照常生效；
+                    整个面板都有右键菜单：终端屏幕（复制/粘贴/全选/清除/新建/终止）、标签（针对那个终端：清除、终止、终止其他终端）、
+                    标题栏等空白处（新建/清除/终止），三者都带最大化和隐藏面板
   git/              源代码管理 + 仓库洞察（合并自 git-insight）。侧栏 Ctrl+Shift+G：暂存/取消暂存/放弃（未跟踪文件进回收站）、
                     Ctrl+Enter 提交（没暂存时可一键全部暂存并提交）、分支切换/新建、拉取/推送/同步/发布分支，活动栏角标；
                     状态栏显示分支和同步；点文件打开左右对比的差异标签（@codemirror/merge，首次打开才加载）；
@@ -64,11 +66,13 @@ plugins/
   keyboard-shortcuts/ 快捷键编辑器（Ctrl+,）：改绑/移除/重置，标出被其他程序占用和内部冲突的快捷键
   theme-editor/     自定义颜色主题：编辑器标签里逐项改颜色（取色器或任意 CSS 值）、实时预览、保存、导出/导入 JSON
 installer/   安装器（Slint，自绘成 Lite 的样子，见下面「安装器」）
+integration/ 系统集成的共享 crate：桌面/开始菜单快捷方式、右键菜单、PATH、「打开方式」注册。
+             安装器用它安装和卸载，应用的「设置 → 系统集成」用同一份代码读取和修改
 ```
 
 用户状态（已禁用插件、最近项目、语言、颜色主题和自定义主题、快捷键）存在用户配置目录的 `Lite/state.json`：Windows 是 `%APPDATA%\Lite`，macOS 是 `~/Library/Application Support/Lite`，其他系统是 `$XDG_CONFIG_HOME/Lite`（默认 `~/.config/Lite`）。文件自动生成，删掉即重置；可以用环境变量 `LITE_STATE_FILE` 指到别处。以前它在 `plugins/state.json`，第一次启动会自动复制过来。
 
-`lite <文件夹>` 用指定文件夹启动第一个窗口。
+`lite <文件夹>` 用指定文件夹启动第一个窗口；`lite <文件>…` 只打开这些文件（不带文件夹，也不恢复上次的项目）。
 
 ## 安装器
 
@@ -80,7 +84,8 @@ cargo build --release --manifest-path installer/Cargo.toml   # 得到 installer/
 ```
 
 - 默认装到 `%LOCALAPPDATA%\Programs\Lite`，全部写在当前用户下，不需要管理员权限。
-- 选项：桌面快捷方式、开始菜单、文件夹右键「用 Lite 打开」、加入 PATH。
+- 选项：桌面快捷方式、开始菜单、右键菜单「用 Lite 打开」（文件、文件夹、文件夹空白处）、加入 PATH。装好以后这四项都能在 Lite 的「设置 → 系统集成」里随时开关；更新时安装器的勾选项默认取当前的实际状态，不会把在设置里改过的东西改回去。
+- 「打开方式」：总会把 `lite.exe` 注册成可选的打开程序（`Applications\lite.exe`，任何类型都能在「选择其他应用」里找到），并给常见的文本/代码扩展名加上 `OpenWithProgids`，让 Lite 直接出现在它们的「打开方式」菜单里。不会抢任何类型的默认程序。
 - 没有 WebView2 运行时会下载微软的引导程序安装（Windows 11 自带）。
 - 已安装时再运行就是更新：覆盖文件，并删掉新版本不再包含的旧文件。
 - 卸载：「设置 → 应用」，或安装目录里的 `uninstall.exe --uninstall`。只删除安装时写入的文件（记在 `install-manifest.txt`），用户自己放进去的东西会留下；用户设置默认保留。
@@ -93,6 +98,15 @@ Slint 的免费许可（Royalty-free）要求署名，只约束安装器这个�
 - 一个窗口对应一个文件夹。`?folder=<路径>` 打开指定文件夹；不带参数的主窗口会恢复上次打开的项目。
 - 切换文件夹会重载窗口，插件不需要处理"工作区变了"的情况。
 - `fs` 权限只能访问当前窗口的工作区，由 Rust 侧校验（`..` 穿越、其他窗口的目录都会被拒绝）。
+- 工作区之外的单个文件：命令行 / 「打开方式」传进来的，或用「文件 → 打开文件…」选的，由 Rust 侧记到这个窗口名下，之后只允许读、写和「在文件管理器中显示」这几个文件。界面自己加不了授权。
+- 文件监听：Rust 侧递归监听工作区文件夹（`src-tauri/src/watch.rs`，`notify`），把一阵改动合并成一批，以 `fs.changed` 事件发给这个窗口的插件：`{ all, paths, structural }` —— `paths` 是所有变了的路径，`structural` 是其中新建/删除/改名的，`all: true` 表示改动太多（或系统丢了通知），当作全部都变了。资源管理器据此刷新屏幕上的文件夹，编辑器重载没有未保存修改的标签，Git 刷新状态。
+
+## 设置
+
+标题栏右侧的齿轮按钮（窗口控制按钮左边，插件加的按钮右边），也在「文件」菜单和命令 `app.settings` 里。设置窗属于内核：
+
+- 常规：颜色主题、显示语言、插件管理（原来放在「关于」里，现在「关于」只显示版本和环境信息）。
+- 系统集成（目前只有 Windows，其他系统不显示这一节）：桌面快捷方式、开始菜单快捷方式、右键菜单「用 Lite 打开」、加入 PATH。开关即时生效，只写当前用户，作用于正在运行的这份 Lite（`lite.exe` 所在目录）；显示的是系统里的实际状态，不另存一份配置。
 
 ## 标题栏
 
@@ -197,7 +211,7 @@ export async function activate(ctx) {
 | `t(key, params)` / `t.en(...)` / `locale` | 本插件语言包里的文案；当前语言 |
 | `workspace.root/name`、`recent()` | 当前项目 |
 | `workspace.pickFolder/open/close/openInNewWindow` | 需要 `"workspace"` 权限 |
-| `fs.readDir/readText/writeText` | 需要 `"fs"` 权限，限定在工作区内 |
+| `fs.readDir/readText/writeText` | 需要 `"fs"` 权限，限定在工作区内（`readText/writeText` 还包括用户从工作区外单独打开的文件） |
 | `fs.createFile/createDir/rename/trash/reveal` | 同上；不覆盖已存在的文件，删除进回收站，工作区根目录本身不能改名或删除 |
 | `pty.spawn({ cols, rows, onData, onExit })` / `write/resize/kill` / `defaultShell()` | 需要 `"terminal"` 权限；系统默认 Shell（Windows 上 pwsh > powershell，其他系统 $SHELL），工作目录固定为工作区；输出按原始字节流式传输 |
 | `git.run(args, { stdin })` | 需要 `"git"` 权限；在工作区目录运行系统的 git，返回 `{ code, stdout, stderr }`（不弹控制台、不提示输入凭据） |

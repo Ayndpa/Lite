@@ -9,7 +9,7 @@
 
 mod install;
 
-use install::{Error, Options, Step};
+use install::{Error, Integration, Options, Step};
 use std::path::PathBuf;
 
 slint::include_modules!();
@@ -116,13 +116,24 @@ fn clean_up_later(dir: Option<&std::path::Path>) {
     }
 }
 
+/// The checkboxes' starting values: for a new install the defaults, for an update whatever is set up
+/// now (the user may have changed it in Lite's settings); command-line options override both.
+fn integration(args: &Args) -> Integration {
+    let mut wanted = match install::installed_dir() {
+        Some(dir) => lite_integration::current(&dir),
+        None => Integration { desktop: true, start_menu: true, context_menu: true, add_to_path: false },
+    };
+    wanted.desktop &= !args.no_desktop;
+    wanted.start_menu &= !args.no_start_menu;
+    wanted.context_menu &= !args.no_context_menu;
+    wanted.add_to_path |= args.add_to_path;
+    wanted
+}
+
 fn options(args: &Args) -> Options {
     Options {
         dir: args.dir.clone().or_else(install::installed_dir).unwrap_or_else(install::default_dir),
-        desktop: !args.no_desktop,
-        start_menu: !args.no_start_menu,
-        context_menu: !args.no_context_menu,
-        add_to_path: args.add_to_path,
+        integration: integration(args),
     }
 }
 
@@ -172,8 +183,8 @@ fn step_text(step: Step, zh: bool) -> &'static str {
         (Step::Preparing, false) => "Preparing…",
         (Step::Copying, true) => "正在复制文件…",
         (Step::Copying, false) => "Copying files…",
-        (Step::Integrating, true) => "正在创建快捷方式…",
-        (Step::Integrating, false) => "Creating shortcuts…",
+        (Step::Integrating, true) => "正在创建快捷方式和打开方式…",
+        (Step::Integrating, false) => "Creating shortcuts and file associations…",
         (Step::Runtime, true) => "正在检查 WebView2 运行时…",
         (Step::Runtime, false) => "Checking the WebView2 runtime…",
         (Step::Removing, true) => "正在移除文件…",
@@ -200,10 +211,11 @@ fn run_ui(args: &Args) -> i32 {
     ui.set_version(install::VERSION.into());
     ui.set_uninstalling(uninstalling);
     ui.set_delete_settings(args.delete_settings);
-    ui.set_opt_desktop(!args.no_desktop);
-    ui.set_opt_start_menu(!args.no_start_menu);
-    ui.set_opt_context_menu(!args.no_context_menu);
-    ui.set_opt_path(args.add_to_path);
+    let preset = integration(args);
+    ui.set_opt_desktop(preset.desktop);
+    ui.set_opt_start_menu(preset.start_menu);
+    ui.set_opt_context_menu(preset.context_menu);
+    ui.set_opt_path(preset.add_to_path);
     let existing = install::installed_dir();
     ui.set_upgrade(existing.is_some());
     match dir.or(if uninstalling { None } else { existing.or_else(|| Some(install::default_dir())) }) {
@@ -258,10 +270,12 @@ fn run_ui(args: &Args) -> i32 {
         }
         let options = Options {
             dir,
-            desktop: ui.get_opt_desktop(),
-            start_menu: ui.get_opt_start_menu(),
-            context_menu: ui.get_opt_context_menu(),
-            add_to_path: ui.get_opt_path(),
+            integration: Integration {
+                desktop: ui.get_opt_desktop(),
+                start_menu: ui.get_opt_start_menu(),
+                context_menu: ui.get_opt_context_menu(),
+                add_to_path: ui.get_opt_path(),
+            },
         };
         let delete_settings = ui.get_delete_settings();
         ui.set_progress(0.0);

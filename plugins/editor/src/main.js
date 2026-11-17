@@ -310,6 +310,7 @@ export async function activate(ctx) {
     const doc = docs.get(key);
     if (doc?.kind !== "text") return;
     await ctx.fs.writeText(key, (doc === shownDoc ? view.state : doc.state).doc.toString());
+    doc.savedAt = Date.now();
     doc.dirty = false;
     renderTabs();
     ctx.events.emit("file.saved", { path: key }); // e.g. source control refreshes
@@ -485,9 +486,20 @@ export async function activate(ctx) {
 
   // Changed on disk by someone else (e.g. git discard / checkout / pull): reload open files without
   // unsaved changes, so a later save doesn't write the old text back. { path }: a file or a folder.
-  ctx.events.on("file.changed", async ({ path }) => {
+  ctx.events.on("file.changed", ({ path }) => reloadFromDisk((key) => isUnder(key, path)));
+  // The same for changes the kernel's file watcher saw (another program, a terminal, …).
+  ctx.events.on("fs.changed", ({ all, paths }) => {
+    // Skip the echo of a save we just made (re-reading a huge file only to find it equal is slow).
+    const fresh = (key) => Date.now() - (docs.get(key).savedAt ?? 0) > 1000;
+    if (all) return reloadFromDisk(fresh);
+    const changed = new Set(paths.map((p) => p.toLowerCase())); // the watcher's spelling may differ in case
+    return reloadFromDisk((key) => changed.has(key.toLowerCase()) && fresh(key));
+  });
+
+  async function reloadFromDisk(matches) {
+    let reloaded = false;
     for (const [key, doc] of [...docs]) {
-      if (doc.kind !== "text" || doc.dirty || !isUnder(key, path)) continue;
+      if (doc.kind !== "text" || doc.dirty || !matches(key)) continue;
       let text;
       try {
         text = await ctx.fs.readText(key);
@@ -508,9 +520,10 @@ export async function activate(ctx) {
       if (live) view.dispatch(change);
       else doc.state = state.update(change).state;
       doc.dirty = false; // the update listener marked it; it matches the disk now
+      reloaded = true;
     }
-    renderTabs();
-  });
+    if (reloaded) renderTabs();
+  }
 
   // Deleted: close the tabs — except ones with unsaved changes, which stay (saving recreates the file).
   ctx.events.on("file.deleted", ({ path }) => {

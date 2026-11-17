@@ -604,6 +604,15 @@ export async function activate(ctx) {
   // ---------- staying current ----------
 
   for (const ev of ["file.saved", "file.renamed", "file.deleted"]) ctx.events.on(ev, () => refresh());
+  // The kernel's file watcher: edits by other programs, and git run elsewhere (it rewrites .git/index,
+  // HEAD, refs…). Not git's own churn — lock files and the object store — which says nothing new.
+  let watchTimer = null;
+  const isNoise = (path) => /[\\/]\.git[\\/]objects([\\/]|$)|[\\/]\.git[\\/].*\.lock$/.test(path);
+  ctx.events.on("fs.changed", ({ all, paths }) => {
+    if (!all && paths.every(isNoise)) return;
+    clearTimeout(watchTimer);
+    watchTimer = setTimeout(() => !busy && refresh(), 300);
+  });
   window.addEventListener("focus", () => refresh());
   // Changes made outside the app (a terminal, another editor): poll while the window is in use.
   setInterval(() => !busy && document.hasFocus() && document.visibilityState === "visible" && refresh(), POLL_MS);

@@ -1,0 +1,16 @@
+[package]
+name = "lite-integration"
+version = "0.1.0"
+edition = "2021"
+description = "How Lite hooks into the desktop (shortcuts, context menus, PATH, \"Open with\"). Shared by the installer and the app's settings."
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+mslnk = "0.1"
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_System_Com",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }

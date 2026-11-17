@@ -1,6 +1,6 @@
 // Kernel-owned title bar. Projects (folders) are a kernel concept, so the bar that shows and switches
 // them is the kernel's too: logo (About), the menu bar (File, Edit, …), project menu (open / recent /
-// new window / close) and the window controls. Plugins only add to it: menu items via ctx.menubar.add,
+// new window / close), the settings button and the window controls. Plugins only add to it: menu items via ctx.menubar.add,
 // the "titlebar.center" slot (e.g. the palette's search box) and icon buttons via ctx.titlebar.addButton.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -13,6 +13,7 @@ const ICONS = {
   "app-window": [["rect", { x: "2", y: "4", width: "20", height: "16", rx: "2" }], ["path", { d: "M10 4v4" }], ["path", { d: "M2 8h20" }], ["path", { d: "M6 4v4" }]],
   "folder-x": [["path", { d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" }], ["path", { d: "m9.5 10.5 5 5" }], ["path", { d: "m14.5 10.5-5 5" }]],
   "rotate-ccw-clock": [["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }], ["path", { d: "M3 3v5h5" }], ["path", { d: "M12 7v5l4 2" }]],
+  "settings": [["path", { d: "M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" }], ["circle", { cx: "12", cy: "12", r: "3" }]],
   "minus": [["path", { d: "M5 12h14" }]],
   "square": [["rect", { width: "18", height: "18", x: "3", y: "3", rx: "2" }]],
   "copy": [["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2" }], ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" }]],
@@ -57,6 +58,7 @@ export function mountTitlebar(opts) {
     <div class="tb-center"></div>
     <div class="tb-side tb-right">
       <div class="tb-buttons"></div>
+      <div class="tb-kernel-buttons"></div>
       <div class="tb-window"></div>
     </div>
     <div class="tb-menu" hidden></div>`;
@@ -90,6 +92,11 @@ export function mountTitlebar(opts) {
   projectBtn.append(icon("chevron-down", 14, "tb-caret"));
   $(".tb-project-name").textContent = ws.name ?? t("project.none");
   projectBtn.title = ws.root ?? t("project.tooltip");
+
+  // Settings: always there, right of whatever buttons plugins add, next to the window controls.
+  $(".tb-kernel-buttons").append(
+    iconButton(icon("settings"), t("settings.title"), () => opts.run("app.settings"), "tb-button tb-settings", "app.settings"),
+  );
 
   // Empty areas move the window; double-click maximizes.
   bar.addEventListener("mousedown", (e) => {

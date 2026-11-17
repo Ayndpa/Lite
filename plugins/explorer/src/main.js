@@ -12,6 +12,8 @@ export async function activate(ctx) {
   const sep = ws.root?.includes("\\") ? "\\" : "/";
   const expanded = new Set(); // folder paths kept open across refreshes
   let selectedPath = null;
+  let editing = 0; // inline name inputs open (new / rename): the tree must not be rebuilt under them
+  let stale = false; // something changed on disk meanwhile
 
   const parentOf = (path) => path.slice(0, path.lastIndexOf(sep));
   const baseName = (path) => path.slice(path.lastIndexOf(sep) + 1);
@@ -105,11 +107,35 @@ export async function activate(ctx) {
         row.ondblclick = () => ctx.events.emit("file.open", { path: entry.path, name: entry.name });
       }
     }
-    container.replaceChildren(frag);
+    // Sub-folders are filled in before the swap: a refresh replaces the tree in one go, so it neither
+    // flickers nor loses its scroll position.
     await Promise.all(pending);
+    container.replaceChildren(frag);
   }
 
-  const refresh = () => (tree ? (rootRendered = renderDir(ws.root, tree, 0)) : Promise.resolve());
+  const refresh = () => {
+    stale = false;
+    return tree ? (rootRendered = renderDir(ws.root, tree, 0)) : Promise.resolve();
+  };
+
+  // ---------- following the disk ----------
+  // The kernel reports what changed in the workspace, whoever did it (this app, a terminal, git, another
+  // program). Only entries appearing, disappearing or being renamed in a folder that is on screen matter.
+
+  let refreshTimer = null;
+  function refreshSoon() {
+    stale = true;
+    if (editing) return; // done when the input closes (see nameInput)
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => stale && !editing && refresh(), 80);
+  }
+  const lower = (path) => path.toLowerCase(); // the watcher's spelling of a path may differ in case
+  ctx.events.on("fs.changed", ({ all, structural }) => {
+    if (!tree) return;
+    if (all) return refreshSoon();
+    const shown = new Set([ws.root, ...expanded].map(lower));
+    if (structural.some((path) => shown.has(lower(parentOf(path))))) refreshSoon();
+  });
 
   /** The children container of a folder row (expanding it first), or the tree for the root. */
   async function childrenOf(dirPath) {
@@ -137,12 +163,16 @@ export async function activate(ctx) {
       nameSpan ? nameSpan.replaceWith(input) : row.append(input);
       row.after(msg);
       let done = false;
+      editing++;
       const finish = (result) => {
         if (done) return;
         done = true;
+        editing--;
         msg.remove();
         document.removeEventListener("mousedown", onOutside, true);
         resolve(result);
+        // Changes that arrived while typing (callers that go on to change the disk refresh themselves).
+        if (stale) setTimeout(refreshSoon);
       };
       const commitOrCancel = () => finish(check() && input.value.trim() !== value ? input.value.trim() : null);
       // Clicking anywhere else ends the edit — also after the input's own right-click menu took focus
