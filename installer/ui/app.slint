@@ -2,7 +2,7 @@
 // app's colors (theme.slint is generated from ui/themes/*.json by build.rs) and the About dialog's
 // layout — logo and title, small section labels, bordered controls, buttons bottom right.
 // No images or paths: everything is rectangles and text, which the software renderer draws anywhere.
-import { AboutSlint, Palette } from "std-widgets.slint";
+import { AboutSlint } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 
 /** UI language: Chinese or English, set once at startup from the system language. */
@@ -172,11 +172,6 @@ export component App inherits Window {
     default-font-family: T.zh ? "Microsoft YaHei UI" : "Segoe UI";
     default-font-size: 13px;
     forward-focus: keys; // Enter / Escape work without clicking first
-    init => {
-        // Pin the std widgets' scheme instead of following the system, so the Slint badge always
-        // draws the same variant: "light" is its dark pill with white text, which suits our dark window.
-        Palette.color-scheme = ColorScheme.light;
-    }
 
     property <string> heading: root.page == 3 ? (root.uninstalling ? (T.zh ? "卸载失败" : "Uninstall failed") : (T.zh ? "安装失败" : "Installation failed"))
         : root.page == 2 ? (root.uninstalling ? (T.zh ? "Lite 已卸载" : "Lite was uninstalled") : (T.zh ? "安装完成" : "Lite is installed"))

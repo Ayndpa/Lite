@@ -76,7 +76,7 @@ integration/ 系统集成的共享 crate：桌面/开始菜单快捷方式、右
 
 ## 安装器
 
-`installer/` 是一个独立的 crate，生成单文件的 `lite-setup.exe`：应用和 `plugins/`（不含各插件的 `src/`）压缩后嵌在里面，安装时不联网。界面用 Slint 自绘（软件渲染，不依赖显卡），配色在构建时读 `ui/themes/*.json` 生成。目前只实现了 Windows。
+`installer/` 是一个独立的 crate，生成单文件的 `lite-setup.exe`：应用和 `plugins/`（不含各插件的 `src/`）压缩后嵌在里面，安装时不联网。界面用 Slint 自绘（软件渲染，不依赖显卡），配色在构建时读 `ui/themes/*.json` 生成，深色还是浅色跟随系统设置（开着窗口时切换也会跟着变）。目前只实现了 Windows。
 
 ```bash
 cargo build --release --manifest-path src-tauri/Cargo.toml   # 先编译应用
